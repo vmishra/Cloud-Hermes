@@ -1,0 +1,14 @@
+{
+  "name": "@cloud-hermes/skills",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Cloud Hermes Google Cloud skill catalog.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsx scripts/build-manifest.ts"
+  },
+  "dependencies": {
+    "@cloud-hermes/core": "*"
+  }
+}

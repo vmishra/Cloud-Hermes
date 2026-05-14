@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# generated skill catalog index — rebuilt from the skill files on demand
+packages/skills/manifest.json
+
 # runtime workspace data — synced GCP state, conversation markdown, memory, audit logs
 workspaces/
 
