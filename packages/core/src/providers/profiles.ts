@@ -22,15 +22,18 @@ export const CLAUDE_PROFILE: ProviderProfile = {
 };
 
 /**
- * Gemini CLI. `-p` is non-interactive headless mode; `--approval-mode plan` is
- * its read-only mode — the closest available equivalent to disabling tools;
- * `--output-format json` wraps the response in an envelope.
+ * Gemini CLI. `-p` is the non-interactive headless trigger; its value is
+ * appended to stdin, so it is passed empty (`-p ""`) with the real prompt
+ * delivered on stdin. `--output-format json` wraps the response in an
+ * envelope. (`--approval-mode plan`, the read-only mode, is intentionally not
+ * used: it requires an experimental flag to be enabled. The CLI is kept from
+ * acting by the system framing and by having no reason to call a tool.)
  */
 export const GEMINI_PROFILE: ProviderProfile = {
   id: 'gemini',
   displayName: 'Gemini CLI',
   bin: 'gemini',
-  baseArgs: ['-p', '--output-format', 'json', '--approval-mode', 'plan'],
+  baseArgs: ['--output-format', 'json', '-p', ''],
   versionArgs: ['--version'],
   envelope: 'gemini-json',
   versionMin: null,
