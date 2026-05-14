@@ -263,7 +263,12 @@ Cloud-Hermes/
 - xterm.js terminal drawer (currently a styled `<pre>` log).
 - ⌘K command palette.
 - The end-of-conversation memory-extraction pass (memory panel + injection exist).
-- MCP-sourced skill enrichment (Hermes would be the MCP client, never the CLI).
+- **Google Cloud MCP server** integration — decided, deferred to v2. Hermes as a
+  **read-only MCP client** feeding the Observe stage: a project-wide resource
+  graph via Cloud Asset Inventory, richer Insights via the observability
+  servers. The reasoning CLI is **never** an MCP client (it would bypass the
+  guard). Auth is already covered by onboarding's ADC step. Full decision in
+  `docs/MCP-INTEGRATION.md`.
 - Multi-user accounts and shared team workspaces (data model is local-first but
   team-ready).
 - Expanding the skill catalog beyond vpc / subnet / compute-vm / firewall.

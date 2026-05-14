@@ -119,6 +119,12 @@ append-only JSON lines. Plain files, inspectable and editable by hand.
 
 The walking skeleton draws the seams for, but does not yet build: the xterm.js
 terminal drawer (the terminal is a styled log for now), the command palette,
-MCP-sourced skill enrichment, multi-user accounts and shared workspaces, and the
-end-of-conversation memory-extraction pass. The data model and APIs are shaped
-so each is an addition, not a rewrite.
+multi-user accounts and shared workspaces, and the end-of-conversation
+memory-extraction pass. The data model and APIs are shaped so each is an
+addition, not a rewrite.
+
+The **Google Cloud MCP server** integration is decided and deferred to v2 —
+Hermes as a read-only MCP client feeding the Observe stage (a project-wide
+resource graph via Cloud Asset Inventory, richer Insights via the observability
+servers). The reasoning CLI is never an MCP client, because that would bypass
+the guard. See [MCP-INTEGRATION.md](./MCP-INTEGRATION.md) for the full decision.
