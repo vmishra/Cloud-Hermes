@@ -1,7 +1,13 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { ResourceGraph, Workspace, type HarnessId } from '@cloud-hermes/core';
+import {
+  DEFAULT_POLICY,
+  GuardianPolicy,
+  ResourceGraph,
+  Workspace,
+  type HarnessId,
+} from '@cloud-hermes/core';
 
 /**
  * The workspace store.
@@ -29,6 +35,8 @@ export interface WorkspaceStore {
   list(): Promise<Workspace[]>;
   saveGraph(id: string, graph: ResourceGraph, raw: unknown): Promise<void>;
   loadGraph(id: string): Promise<ResourceGraph | null>;
+  /** The workspace's Guardian policy, or the default when none is configured. */
+  loadPolicy(id: string): Promise<GuardianPolicy>;
 }
 
 export function createWorkspaceStore(root: string): WorkspaceStore {
@@ -100,6 +108,16 @@ export function createWorkspaceStore(root: string): WorkspaceStore {
         return parsed.success ? parsed.data : null;
       } catch {
         return null;
+      }
+    },
+
+    async loadPolicy(id) {
+      try {
+        const text = await readFile(join(dir(id), 'policy.json'), 'utf8');
+        const parsed = GuardianPolicy.safeParse(JSON.parse(text));
+        return parsed.success ? parsed.data : DEFAULT_POLICY;
+      } catch {
+        return DEFAULT_POLICY;
       }
     },
   };
