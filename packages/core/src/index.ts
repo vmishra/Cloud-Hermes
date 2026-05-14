@@ -12,4 +12,5 @@ export * from './safety/index';
 export * from './policy/index';
 export * from './graph/index';
 export * from './skills/index';
+export * from './insights/index';
 export * from './types';

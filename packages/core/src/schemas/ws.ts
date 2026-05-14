@@ -17,6 +17,9 @@ export const ClientMessage = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('user_message'),
     conversationId: z.string(),
+    /** The workspace this conversation belongs to — its synced project state
+     *  is what the turn is grounded in. */
+    workspaceId: z.string(),
     mode: ConversationMode,
     text: z.string(),
   }),
