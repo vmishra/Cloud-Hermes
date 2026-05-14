@@ -18,3 +18,11 @@ export const WORKSPACES_DIR =
 export const SKILLS_DIR =
   process.env.CLOUD_HERMES_SKILLS_DIR ?? join(import.meta.dirname, '../../skills');
 
+/**
+ * Opt-in: enrich state sync with a project-wide inventory from the Google Cloud
+ * MCP server (Cloud Asset Inventory). Off by default — it is read-only and
+ * Observe-stage only, but it talks to a remote endpoint, so the operator opts
+ * in deliberately. See docs/MCP-INTEGRATION.md.
+ */
+export const MCP_ENABLED = process.env.CLOUD_HERMES_MCP_ENABLED === '1';
+

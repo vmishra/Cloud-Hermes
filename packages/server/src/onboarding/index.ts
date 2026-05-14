@@ -1,6 +1,7 @@
 export {
   checkGcloudInstalled,
   checkAuthStatus,
+  getAdcToken,
   listProjects,
   setProject,
   isValidProjectId,

@@ -74,6 +74,23 @@ export async function checkGcloudInstalled(): Promise<boolean> {
   }
 }
 
+/**
+ * Returns a fresh Application Default Credentials access token, or null if one
+ * cannot be obtained. ADC tokens are short-lived (about an hour), so callers
+ * fetch one per discrete operation rather than caching it.
+ */
+export async function getAdcToken(): Promise<string | null> {
+  try {
+    const result = await runGcloud(['auth', 'application-default', 'print-access-token'], {
+      timeoutMs: 20_000,
+    });
+    const token = result.stdout.trim();
+    return result.ok && token !== '' ? token : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A full read of the gcloud CLI's auth and project state. */
 export async function checkAuthStatus(): Promise<GcloudStatus> {
   if (!(await checkGcloudInstalled())) {
