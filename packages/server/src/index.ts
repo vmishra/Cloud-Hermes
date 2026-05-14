@@ -1,8 +1,9 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
-import { HOST, PORT, SERVER_VERSION, WORKSPACES_DIR } from './config';
+import { HOST, PORT, SERVER_VERSION, SKILLS_DIR, WORKSPACES_DIR } from './config';
 import { resolveProvider } from './harness/index';
 import { createWorkspaceStore } from './workspace/index';
+import { loadSkillCatalog } from './skills/index';
 import { registerOnboardingRoutes } from './routes/onboarding';
 import { registerWebSocket } from './ws/index';
 
@@ -19,6 +20,12 @@ const app = Fastify({ logger: true });
 await app.register(websocket);
 
 const store = createWorkspaceStore(WORKSPACES_DIR);
+
+const catalog = await loadSkillCatalog([SKILLS_DIR]);
+app.log.info(`Loaded ${catalog.skills.size} skill(s) from the catalog.`);
+for (const { path, error } of catalog.errors) {
+  app.log.warn(`Skill not loaded — ${path}: ${error}`);
+}
 
 const provider = await resolveProvider();
 if (provider) {
