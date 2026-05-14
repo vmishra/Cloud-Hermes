@@ -1,16 +1,21 @@
 /**
  * Cloud Hermes — environment preflight.
  *
- * Run with `npm run doctor`. Detects the tooling Cloud Hermes depends on and
- * prints actionable guidance for anything missing.
+ * Run with `npm run doctor`. Detects the tooling Cloud Hermes depends on, then
+ * runs a self-test against each reasoning harness that is present.
  *
- * The gate is binary: the app needs Node and at least one reasoning harness
- * (Claude Code or Gemini) to start. `gcloud` and `terraform` are checked here
- * but are exercised at runtime — onboarding guides the user through them — so
- * their absence is a warning, not a failure.
+ * The hard gate is binary presence: the app needs Node and at least one
+ * harness binary (Claude Code or Gemini) to start. The self-test goes further
+ * — it runs a trivial structured query and confirms the harness is
+ * authenticated and its output still parses. A failing self-test does not
+ * block startup (onboarding guides authentication), but it is reported
+ * prominently, because a CLI that is installed-but-not-working fails silently
+ * otherwise.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { ProviderId } from '@cloud-hermes/core';
+import { createProviderById, selfTestProvider } from '../packages/server/src/harness/index';
 
 const run = promisify(execFile);
 
@@ -18,7 +23,6 @@ type Tool = {
   name: string;
   bin: string;
   versionArgs: string[];
-  /** A missing required tool fails the preflight; an optional one only warns. */
   required: boolean;
   guidance: string;
 };
@@ -63,26 +67,26 @@ const TOOLS: Tool[] = [
   },
 ];
 
-type Result = {
-  tool: Tool;
-  found: boolean;
-  version?: string;
-};
+const HARNESS_BINS = new Set<string>(['claude', 'gemini']);
+
+type Result = { tool: Tool; found: boolean; version?: string };
 
 const firstLine = (text: string): string => text.trim().split('\n')[0]?.trim() ?? '';
 
 async function probe(tool: Tool): Promise<Result> {
   try {
-    const { stdout, stderr } = await run(tool.bin, tool.versionArgs, {
-      timeout: 10_000,
-    });
+    const { stdout, stderr } = await run(tool.bin, tool.versionArgs, { timeout: 10_000 });
     return { tool, found: true, version: firstLine(stdout || stderr) };
   } catch {
     return { tool, found: false };
   }
 }
 
-const LABEL = { ok: 'ok      ', missing: 'missing ', optional: 'optional' } as const;
+const LABEL = {
+  ok: 'ok      ',
+  missing: 'missing ',
+  optional: 'optional',
+} as const;
 
 async function main(): Promise<void> {
   process.stdout.write('\nCloud Hermes — environment preflight\n\n');
@@ -97,8 +101,26 @@ async function main(): Promise<void> {
 
   const byBin = new Map(results.map((r) => [r.tool.bin, r]));
   const nodeOk = byBin.get('node')?.found ?? false;
-  const harnessOk = (byBin.get('claude')?.found ?? false) || (byBin.get('gemini')?.found ?? false);
+  const presentHarnesses = [...HARNESS_BINS].filter(
+    (bin): bin is ProviderId => byBin.get(bin)?.found ?? false,
+  );
   const gcloudOk = byBin.get('gcloud')?.found ?? false;
+
+  // Self-test each present harness — presence is not the same as working.
+  let anyHarnessWorks = false;
+  if (presentHarnesses.length > 0) {
+    process.stdout.write('\n  Harness self-test\n');
+    for (const id of presentHarnesses) {
+      const provider = createProviderById(id);
+      const test = await selfTestProvider(provider);
+      const label = test.ok ? LABEL.ok : LABEL.missing;
+      const timing = test.durationMs ? ` (${test.durationMs} ms)` : '';
+      process.stdout.write(
+        `  [${label}] ${provider.profile.displayName.padEnd(20)} ${test.detail}${timing}\n`,
+      );
+      if (test.ok) anyHarnessWorks = true;
+    }
+  }
 
   process.stdout.write('\n');
 
@@ -107,7 +129,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (!harnessOk) {
+  if (presentHarnesses.length === 0) {
     process.stdout.write(
       '  No reasoning harness found. Install the Claude Code CLI or the Gemini CLI,\n' +
         '  then run the preflight again. Cloud Hermes cannot start without one.\n\n',
@@ -115,7 +137,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (!gcloudOk) {
+  if (!anyHarnessWorks) {
+    process.stdout.write(
+      '  A harness is installed but none passed the self-test — most often this means\n' +
+        '  it is not authenticated yet. You can still start Cloud Hermes; onboarding will\n' +
+        '  walk you through authenticating your harness.\n\n',
+    );
+  } else if (!gcloudOk) {
     process.stdout.write(
       '  Ready to start. Note: gcloud is not installed yet — install it before\n' +
         '  connecting a project. Onboarding will walk you through authentication.\n\n',
