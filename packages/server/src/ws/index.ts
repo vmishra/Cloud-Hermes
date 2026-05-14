@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import {
   ClientMessage,
+  fenceMemory,
+  renderResponseMarkdown,
   summarizeGraph,
   type ApprovalCard,
   type HarnessProvider,
@@ -12,6 +14,8 @@ import { runTurn } from '../harness/index';
 import { buildSkillsSection, type SkillCatalog } from '../skills/index';
 import { runExecution } from '../execution/index';
 import type { WorkspaceStore } from '../workspace/index';
+import type { ConversationStore } from '../conversations/index';
+import type { MemoryStore } from '../memory/index';
 
 /**
  * Registers the `/ws` WebSocket route — the single channel between the web
@@ -28,6 +32,8 @@ export interface WebSocketDeps {
   provider: HarnessProvider | null;
   store: WorkspaceStore;
   catalog: SkillCatalog;
+  conversations: ConversationStore;
+  memory: MemoryStore;
 }
 
 export async function registerWebSocket(
@@ -114,12 +120,23 @@ export async function registerWebSocket(
 
       busy.add(message.conversationId);
       try {
-        const graph = await deps.store.loadGraph(message.workspaceId);
+        // Persistence and memory are enhancements — a failure here never blocks
+        // the turn.
+        await deps.conversations
+          .recordUser(message.workspaceId, message.conversationId, message.text)
+          .catch(() => undefined);
+
+        const [graph, memoryText] = await Promise.all([
+          deps.store.loadGraph(message.workspaceId),
+          deps.memory.read(message.workspaceId),
+        ]);
         const stateSummary = graph !== null ? summarizeGraph(graph) : undefined;
+        const userMemory = fenceMemory(memoryText);
 
         const turn = await runTurn(deps.provider, {
           mode: message.mode,
           userMessage: message.text,
+          userMemory: userMemory === '' ? undefined : userMemory,
           stateSummary,
           // Create mode gets progressive skill loading; converse mode does not.
           buildSkillsSection:
@@ -129,6 +146,13 @@ export async function registerWebSocket(
         });
 
         if (turn.ok) {
+          await deps.conversations
+            .recordHermes(
+              message.workspaceId,
+              message.conversationId,
+              renderResponseMarkdown(turn.response),
+            )
+            .catch(() => undefined);
           send({
             type: 'hermes_response',
             conversationId: message.conversationId,

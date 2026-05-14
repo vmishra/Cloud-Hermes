@@ -22,6 +22,8 @@ import {
 export interface TurnInput {
   mode: ConversationMode;
   userMessage: string;
+  /** The context-fenced "user memory" block — recalled operator preferences. */
+  userMemory?: string;
   /** A compact, deterministic summary of the workspace's synced project state. */
   stateSummary?: string;
   /**
@@ -88,6 +90,7 @@ export async function runTurn(
 
     const prompt = assemblePrompt({
       systemFraming,
+      userMemory: input.userMemory,
       stateSummary: input.stateSummary,
       skills: skillsSection,
       userMessage: input.userMessage,
@@ -100,6 +103,7 @@ export async function runTurn(
     if (!attempt.ok && attempt.kind === 'parse') {
       const reaskPrompt = assemblePrompt({
         systemFraming,
+        userMemory: input.userMemory,
         stateSummary: input.stateSummary,
         skills: skillsSection,
         history: `The user asked:\n${input.userMessage}\n\nYou replied with something that could not be parsed.`,

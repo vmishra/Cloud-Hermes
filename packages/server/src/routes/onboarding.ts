@@ -10,18 +10,22 @@ import { createHarnessProvider } from '../harness/index';
 import { syncState } from '../gcp/index';
 import { checkAuthStatus, isValidProjectId, listProjects, setProject } from '../onboarding/index';
 import type { WorkspaceStore } from '../workspace/index';
+import type { ConversationStore } from '../conversations/index';
+import type { MemoryStore } from '../memory/index';
 
 /**
- * Onboarding REST routes.
+ * Workspace and onboarding REST routes.
  *
- * Onboarding is request/response — workspace creation, gcloud detection,
- * project selection — so it lives on REST routes rather than the streaming
+ * Onboarding and the workspace-scoped reads — conversation history, memory —
+ * are request/response, so they live on REST routes rather than the streaming
  * WebSocket channel. The one slow step, the first state sync, is its own
  * endpoint so the UI can show progress around it.
  */
 
 export interface OnboardingRouteDeps {
   store: WorkspaceStore;
+  conversations: ConversationStore;
+  memory: MemoryStore;
 }
 
 export async function registerOnboardingRoutes(
@@ -109,5 +113,34 @@ export async function registerOnboardingRoutes(
         .send({ error: 'No synced state for this workspace yet — run a sync first.' });
     }
     return { syncedAt: graph.syncedAt, insights: runInsights(graph) };
+  });
+
+  app.get('/api/workspaces/:id/conversations', async (request) => {
+    const { id } = request.params as { id: string };
+    return { conversations: await deps.conversations.list(id) };
+  });
+
+  app.get('/api/workspaces/:id/conversations/:conversationId', async (request, reply) => {
+    const { id, conversationId } = request.params as { id: string; conversationId: string };
+    const markdown = await deps.conversations.load(id, conversationId);
+    if (markdown === null) {
+      return reply.status(404).send({ error: 'Conversation not found.' });
+    }
+    return { id: conversationId, markdown };
+  });
+
+  app.get('/api/workspaces/:id/memory', async (request) => {
+    const { id } = request.params as { id: string };
+    return { content: await deps.memory.read(id) };
+  });
+
+  app.put('/api/workspaces/:id/memory', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as { content?: unknown };
+    if (typeof body?.content !== 'string') {
+      return reply.status(400).send({ error: 'A string "content" field is required.' });
+    }
+    await deps.memory.write(id, body.content);
+    return { ok: true };
   });
 }

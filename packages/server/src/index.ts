@@ -3,6 +3,8 @@ import websocket from '@fastify/websocket';
 import { HOST, PORT, SERVER_VERSION, SKILLS_DIR, WORKSPACES_DIR } from './config';
 import { resolveProvider } from './harness/index';
 import { createWorkspaceStore } from './workspace/index';
+import { createConversationStore } from './conversations/index';
+import { createMemoryStore } from './memory/index';
 import { loadSkillCatalog } from './skills/index';
 import { registerOnboardingRoutes } from './routes/onboarding';
 import { registerWebSocket } from './ws/index';
@@ -20,6 +22,8 @@ const app = Fastify({ logger: true });
 await app.register(websocket);
 
 const store = createWorkspaceStore(WORKSPACES_DIR);
+const conversations = createConversationStore(WORKSPACES_DIR);
+const memory = createMemoryStore(WORKSPACES_DIR);
 
 const catalog = await loadSkillCatalog([SKILLS_DIR]);
 app.log.info(`Loaded ${catalog.skills.size} skill(s) from the catalog.`);
@@ -40,8 +44,8 @@ app.get('/health', async () => ({
   harness: provider?.profile.id ?? null,
 }));
 
-await registerOnboardingRoutes(app, { store });
-await registerWebSocket(app, { provider, store, catalog });
+await registerOnboardingRoutes(app, { store, conversations, memory });
+await registerWebSocket(app, { provider, store, catalog, conversations, memory });
 
 try {
   await app.listen({ host: HOST, port: PORT });
