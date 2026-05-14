@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   ApprovalCard,
   ConversationMode,
@@ -33,7 +33,16 @@ type Entry =
   | { id: number; role: 'result'; ok: boolean; summary: string }
   | { id: number; role: 'error'; text: string };
 
-export function Conversation({ workspace }: { workspace: Workspace }) {
+export function Conversation({
+  workspace,
+  conversationId,
+  onTurnComplete,
+}: {
+  workspace: Workspace;
+  conversationId: string;
+  /** Called when a turn finishes — the persisted transcript has changed. */
+  onTurnComplete: () => void;
+}) {
   const [state, setState] = useState<ConnectionState>('connecting');
   const [mode, setMode] = useState<ConversationMode>('converse');
   const [draft, setDraft] = useState('');
@@ -41,7 +50,6 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
   const [terminalLog, setTerminalLog] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const conversationId = useMemo(() => crypto.randomUUID(), []);
   const connectionRef = useRef<Connection | null>(null);
   const nextId = useRef(0);
   const newId = () => (nextId.current += 1);
@@ -55,6 +63,7 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
           case 'hermes_response':
             append({ id: newId(), role: 'hermes', response: message.response });
             setBusy(false);
+            onTurnComplete();
             break;
           case 'commands':
             append({ id: newId(), role: 'commands', commands: message.commands });
@@ -82,6 +91,7 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
           case 'error':
             append({ id: newId(), role: 'error', text: `${message.code}: ${message.message}` });
             setBusy(false);
+            onTurnComplete();
             break;
         }
       },
@@ -146,11 +156,10 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-neutral-50 text-neutral-900">
+    <div className="flex flex-1 flex-col bg-neutral-50 text-neutral-900">
       <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
         <span className="text-sm font-medium tracking-tight">Cloud Hermes</span>
         <span className="text-xs text-neutral-500">
-          {workspace.name} · {workspace.projectId} ·{' '}
           {state === 'connected' ? 'connected' : state === 'connecting' ? 'connecting' : 'disconnected'}
         </span>
       </header>

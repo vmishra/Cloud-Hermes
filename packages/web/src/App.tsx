@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
 import { api } from './api/client';
 import { Onboarding } from './features/onboarding/Onboarding';
-import { Conversation } from './Conversation';
+import { WorkspaceShell } from './WorkspaceShell';
 
 /**
  * The shell router. On load it asks the server what exists: with no workspace,
@@ -53,5 +53,14 @@ export function App() {
     );
   }
 
-  return <Conversation workspace={phase.workspace} />;
+  return (
+    <WorkspaceShell
+      key={phase.workspace.id}
+      workspace={phase.workspace}
+      onSwitchWorkspace={(workspace) => {
+        localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id);
+        setPhase({ kind: 'workspace', workspace });
+      }}
+    />
+  );
 }
