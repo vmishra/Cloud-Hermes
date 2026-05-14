@@ -1,7 +1,15 @@
 ---
 id: subnet
 displayName: Subnets
-description: Create and inspect subnets — the regional IP ranges carved into a VPC.
+version: 1.1.0
+description: Create and inspect subnets — the regional IPv4 ranges carved into a VPC. Use when adding addressable space to a network in a region or asking what ranges a network already uses.
+triggers:
+  - create a subnet
+  - add a subnet
+  - subnet range
+  - CIDR range
+  - what IP ranges does this network use
+  - regional address space
 service: compute
 dependsOn: [vpc]
 docs:
@@ -24,7 +32,7 @@ capabilities:
         description: The region the subnet lives in, e.g. us-central1.
         pattern: "^[a-z]+-[a-z]+[0-9]$"
       - name: range
-        description: The primary IPv4 CIDR range, e.g. 10.0.0.0/20.
+        description: The primary IPv4 CIDR range, e.g. 10.0.0.0/20. Cannot be shrunk later.
         pattern: "^([0-9]{1,3}[.]){3}[0-9]{1,3}/[0-9]{1,2}$"
   - resourceType: networks subnets
     verb: describe
@@ -46,14 +54,29 @@ instance in the region draws its address from a subnet.
 Reach for this skill when the user wants to add addressable space to a network
 in a region, or asks what ranges a network already uses.
 
+## Prerequisites
+
+- **API:** the Compute Engine API (`compute.googleapis.com`) must be enabled.
+- **IAM:** creating a subnet needs the **Compute Network Admin** role
+  (`roles/compute.networkAdmin`); describing one needs **Compute Network
+  Viewer** (`roles/compute.networkViewer`).
+- **A network in `custom` subnet mode** must already exist — see the `vpc`
+  skill. Auto-mode networks manage their own subnets.
+
 ## Best practices
 
-- Size the range for the region's expected footprint, then leave headroom — a
-  `/20` (4,094 usable addresses) is a sane default for general workloads.
-- Keep ranges from overlapping across subnets, and well clear of ranges used by
-  peered networks or on-premises, or routing will not behave.
-- One subnet per region per network is usually enough; reach for a second only
-  when a workload genuinely needs range isolation.
+- **Size the range with headroom.** A `/20` (4,094 usable addresses) is a sane
+  default for general regional workloads; go smaller only with a clear reason.
+- **Keep ranges from overlapping** — across subnets in the project, and well
+  clear of ranges used by peered networks or on-premises, or routing will not
+  behave. Read the network's existing subnets before proposing a new range.
+- **One subnet per region per network** is usually enough. Reach for a second
+  only when a workload genuinely needs range isolation.
+
+> **Day-0 decision.** A subnet's primary range can be *expanded* later but never
+> *shrunk*, and the region is fixed at creation. Confirm the range and region
+> with the user, and check they do not overlap existing subnets, before
+> proposing the create.
 
 ## Parameters
 

@@ -1,7 +1,16 @@
 ---
 id: firewall
 displayName: Firewall rules
-description: Create, inspect, and tighten VPC firewall rules.
+version: 1.1.0
+description: Create, inspect, and tighten VPC firewall rules. Use when allowing traffic to a resource, asking what is currently permitted, or narrowing an existing rule.
+triggers:
+  - open a port
+  - allow traffic
+  - create a firewall rule
+  - what firewall rules exist
+  - allow SSH
+  - restrict ingress
+  - tighten a firewall rule
 service: compute
 dependsOn: [vpc]
 docs:
@@ -27,7 +36,7 @@ capabilities:
         description: Protocol and ports with no spaces, e.g. tcp:22 or tcp:80,tcp:443.
         pattern: "^[a-z0-9:,-]+$"
       - name: sourceRanges
-        description: Comma-separated CIDR ranges, no spaces, e.g. 10.0.0.0/8,192.168.0.0/16.
+        description: Comma-separated CIDR ranges, no spaces. Scope as tightly as the use allows.
         pattern: "^[0-9.,/]+$"
   - resourceType: firewall-rules
     verb: describe
@@ -58,15 +67,26 @@ network. Rules are stateful and evaluated by priority.
 Reach for this skill when the user wants to allow traffic to a resource, asks
 what is currently permitted, or wants to narrow an existing rule.
 
+## Prerequisites
+
+- **API:** the Compute Engine API (`compute.googleapis.com`) must be enabled.
+- **IAM:** creating or updating a rule needs the **Compute Security Admin** role
+  (`roles/compute.securityAdmin`); describing one needs **Compute Network
+  Viewer** (`roles/compute.networkViewer`).
+
 ## Best practices
 
-- Scope source ranges as tightly as the use allows. `0.0.0.0/0` on a
-  management port such as SSH (`tcp:22`) or RDP (`tcp:3389`) is an exposure to
-  call out, not a default.
-- Prefer rules that target specific resources over broad network-wide rules —
-  a rule should describe an intent, not a blanket.
-- Updating a rule's source ranges replaces the whole set. Read the current rule
-  first so the change is deliberate, not accidental.
+- **Scope source ranges as tightly as the use allows.** Prefer a specific CIDR
+  over `0.0.0.0/0` wherever the use permits it.
+- **Prefer rules that target specific resources** over broad network-wide rules
+  — a rule should describe an intent, not a blanket.
+- **Read the current rule before updating it.** An update to `--source-ranges`
+  replaces the whole set; without reading first, a "tighten" can silently widen.
+
+> **CRITICAL.** `0.0.0.0/0` on a management port — SSH (`tcp:22`), RDP
+> (`tcp:3389`), or a database port — exposes that service to the entire
+> internet. Never propose it as a default. If the user asks for it explicitly,
+> say plainly what it means and confirm before planning it.
 
 ## Parameters
 
