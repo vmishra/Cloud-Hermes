@@ -18,6 +18,8 @@ import {
   normalizeZones,
   type GraphFragment,
 } from './normalize';
+import { MCP_ENABLED } from '../config';
+import { fetchAssetInventory } from '../mcp/index';
 
 /**
  * Read-only state sync.
@@ -196,6 +198,23 @@ export async function syncState(projectId: string, options: SyncOptions = {}): P
       nodes.push(...outcome.fragment.nodes);
       edges.push(...outcome.fragment.edges);
       raw[outcome.slice] = outcome.raw;
+    }
+  }
+
+  // Opt-in: a project-wide inventory from the Cloud Asset Inventory MCP server.
+  // Read-only and Observe-stage only — it adds breadth to the graph and never
+  // touches the guard. When disabled or unreachable, the graph is exactly what
+  // the gcloud slices produced; an MCP failure is just an unavailable slice.
+  if (MCP_ENABLED) {
+    const inventory = await fetchAssetInventory(projectId);
+    slices.push({
+      slice: 'asset-inventory',
+      status: inventory.status,
+      ...(inventory.reason ? { reason: inventory.reason } : {}),
+    });
+    if (inventory.status === 'ok') {
+      nodes.push(...inventory.fragment.nodes);
+      edges.push(...inventory.fragment.edges);
     }
   }
 

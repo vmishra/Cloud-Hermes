@@ -45,7 +45,13 @@ export function blastRadius(graph: ResourceGraph, nodeId: string): GraphNode[] {
 
 /** Kinds that appear, in this order, in the prompt summary. Regions and zones
  *  are reference catalogs, not project state, so they are summarized as counts. */
-const SUMMARY_KINDS: GraphNodeKind[] = ['network', 'subnet', 'instance', 'firewall-rule'];
+const SUMMARY_KINDS: GraphNodeKind[] = [
+  'network',
+  'subnet',
+  'instance',
+  'firewall-rule',
+  'asset',
+];
 
 const KIND_LABELS: Record<GraphNodeKind, string> = {
   project: 'Project',
@@ -55,6 +61,7 @@ const KIND_LABELS: Record<GraphNodeKind, string> = {
   'firewall-rule': 'Firewall rules',
   region: 'Regions',
   zone: 'Zones',
+  asset: 'Other resources',
 };
 
 function renderData(data: Record<string, unknown>): string {

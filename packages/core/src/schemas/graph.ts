@@ -18,6 +18,10 @@ export const GraphNodeKind = z.enum([
   'firewall-rule',
   'region',
   'zone',
+  // A generic node for any resource discovered by the Cloud Asset Inventory MCP
+  // slice that the gcloud sync slices do not cover in detail. Its `data` carries
+  // the real GCP `assetType`.
+  'asset',
 ]);
 
 export const GraphNode = z.object({
