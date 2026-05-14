@@ -56,12 +56,33 @@ function isFlag(token: string): boolean {
   return token.startsWith('-');
 }
 
-/** Parses `--name=value` and `--name` into a flag. The classifier only needs
- *  flag *names* for the denylist, so a value in a following token is ignored. */
-function parseFlag(token: string): GcloudFlag {
-  const equals = token.indexOf('=');
-  if (equals === -1) return { name: token };
-  return { name: token.slice(0, equals), value: token.slice(equals + 1) };
+/**
+ * Parses the flag region of a command into flags with their values. Handles
+ * both `--name=value` and `--name value` forms — in the flag region (after the
+ * verb and its positionals) a non-flag token is a flag's value. Flag values
+ * are needed downstream by the policy layer, not just the flag names.
+ */
+function parseFlags(tokens: readonly string[]): GcloudFlag[] {
+  const flags: GcloudFlag[] = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i]!;
+    if (!isFlag(token)) continue;
+
+    const equals = token.indexOf('=');
+    if (equals !== -1) {
+      flags.push({ name: token.slice(0, equals), value: token.slice(equals + 1) });
+      continue;
+    }
+
+    const next = tokens[i + 1];
+    if (next !== undefined && !isFlag(next)) {
+      flags.push({ name: token, value: next });
+      i += 1;
+    } else {
+      flags.push({ name: token });
+    }
+  }
+  return flags;
 }
 
 /** The [service, ...resourceTypeParts, verb] path a command must match. */
@@ -130,7 +151,7 @@ export function classifyGcloudCommand(
     if (isFlag(argv[index]!)) break;
     head.push(argv[index]!);
   }
-  const flags = argv.slice(index).filter(isFlag).map(parseFlag);
+  const flags = parseFlags(argv.slice(index));
 
   // Gate 4 — capability-table lookup. The longest capability path that is a
   // prefix of the head wins; no match means the command is undeclared.
