@@ -21,9 +21,11 @@ the synced state of the project, the skill catalog, the safety guard, the policy
 layer, persistence, and every side-effecting subprocess. **The CLI proposes;
 Hermes validates and executes.**
 
-Two modes: **Converse** (read-only Q&A about the project) and **Create** (plan a
-change, then run it / hand over commands / generate Terraform). Safety is
-paramount — **destructive operations are structurally unreachable in v1**.
+Three conversation modes: **Converse** (read-only Q&A about the project),
+**Create** (plan a change, then run it / hand over commands / generate
+Terraform), and **Diagnose** (paste an error or log; get a step-by-step,
+environment-customized resolution). Safety is paramount — **destructive
+operations are structurally unreachable in v1**.
 
 ---
 
@@ -137,6 +139,18 @@ bounded. A skill that fails schema validation is **excluded and fails the build*
 - **Fail-closed approvals**: a disconnect / abort / new message denies every
   pending approval.
 - **Provider abstraction**: `CloudProvider` seam for future AWS; GCP-only now.
+- **Diagnose mode** (`server/src/diagnostics/`): a third conversation mode for
+  guided troubleshooting. The operator pastes an error or log; the server
+  gathers an `EnvironmentReport` (platform, node, gcloud install/auth/ADC/
+  project, terraform, harnesses, workspace + sync staleness), pairs it with a
+  troubleshooting knowledge base (`packages/skills/troubleshooting/`), and runs
+  a `diagnose`-mode turn. The harness returns a `diagnosis` — ordered steps,
+  each with a command **filled in with the operator's real values** and a verify
+  line — or `clarifying_questions` if it needs a value the report does not have
+  (the framing forbids placeholders: ask, never guess). Also reachable over REST
+  (`POST /api/onboarding/diagnose`) so it works before a workspace exists. It is
+  read-only guidance — the commands are for the operator to run; Hermes does not
+  execute them.
 - **Google Cloud MCP** (`server/src/mcp/`): Hermes — never the reasoning CLI —
   acts as a **read-only MCP client**, confined to the Observe stage. Opt-in via
   `CLOUD_HERMES_MCP_ENABLED=1`; off by default. When on, `syncState` adds a
