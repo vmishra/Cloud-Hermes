@@ -1,21 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ConversationMode, HermesResponse, Insight, Workspace } from '@cloud-hermes/core';
+import type {
+  ApprovalCard,
+  ConversationMode,
+  ExecutionCommand,
+  ExecutionPath,
+  HermesResponse,
+  Insight,
+  PlanStep,
+  TerraformFile,
+  Workspace,
+} from '@cloud-hermes/core';
 import { connectToServer, type Connection, type ConnectionState } from './ws/client';
 import { ResponseView } from './ResponseView';
 import { InsightsView } from './InsightsView';
+import { CommandsView, TerraformView, ApprovalCardView, TerminalLog } from './ExecutionViews';
 import { api } from './api/client';
 
 /**
- * The conversation surface for a workspace. Drives one reasoning turn end to
- * end, grounded in the workspace's synced project state, and runs an on-demand
- * project review. The dual-pane workspace, operating-loop stages, and terminal
- * view are built on top of this in the design-system pass.
+ * The conversation surface for a workspace. Drives a reasoning turn, an
+ * on-demand project review, and the three plan-execution paths — including the
+ * human-in-the-loop approval card and the live terminal log. The dual-pane
+ * workspace layout and the xterm.js terminal drawer come with the design pass.
  */
 
 type Entry =
   | { id: number; role: 'user'; text: string }
   | { id: number; role: 'hermes'; response: HermesResponse }
   | { id: number; role: 'insights'; insights: Insight[] }
+  | { id: number; role: 'commands'; commands: ExecutionCommand[] }
+  | { id: number; role: 'terraform'; files: TerraformFile[] }
+  | { id: number; role: 'approval'; card: ApprovalCard; resolved: 'approved' | 'denied' | null }
+  | { id: number; role: 'result'; ok: boolean; summary: string }
   | { id: number; role: 'error'; text: string };
 
 export function Conversation({ workspace }: { workspace: Workspace }) {
@@ -23,6 +38,7 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
   const [mode, setMode] = useState<ConversationMode>('converse');
   const [draft, setDraft] = useState('');
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [terminalLog, setTerminalLog] = useState('');
   const [busy, setBusy] = useState(false);
 
   const conversationId = useMemo(() => crypto.randomUUID(), []);
@@ -35,12 +51,38 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
     const connection = connectToServer({
       onState: setState,
       onMessage: (message) => {
-        if (message.type === 'hermes_response') {
-          append({ id: newId(), role: 'hermes', response: message.response });
-          setBusy(false);
-        } else if (message.type === 'error') {
-          append({ id: newId(), role: 'error', text: `${message.code}: ${message.message}` });
-          setBusy(false);
+        switch (message.type) {
+          case 'hermes_response':
+            append({ id: newId(), role: 'hermes', response: message.response });
+            setBusy(false);
+            break;
+          case 'commands':
+            append({ id: newId(), role: 'commands', commands: message.commands });
+            setBusy(false);
+            break;
+          case 'terraform':
+            append({ id: newId(), role: 'terraform', files: message.files });
+            setBusy(false);
+            break;
+          case 'approval_required':
+            append({ id: newId(), role: 'approval', card: message.card, resolved: null });
+            break;
+          case 'execution_result':
+            append({
+              id: newId(),
+              role: 'result',
+              ok: message.ok,
+              summary: message.summary,
+            });
+            setBusy(false);
+            break;
+          case 'terminal':
+            setTerminalLog((prev) => prev + message.chunk);
+            break;
+          case 'error':
+            append({ id: newId(), role: 'error', text: `${message.code}: ${message.message}` });
+            setBusy(false);
+            break;
         }
       },
     });
@@ -62,6 +104,28 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
     append({ id: newId(), role: 'user', text });
     setDraft('');
     setBusy(true);
+  };
+
+  const executePlan = (steps: PlanStep[], path: ExecutionPath) => {
+    const sent = connectionRef.current?.send({
+      type: 'execute_plan',
+      conversationId,
+      workspaceId: workspace.id,
+      steps,
+      path,
+    });
+    if (sent === true) setBusy(true);
+  };
+
+  const resolveApproval = (approvalId: string, decision: 'approved' | 'denied') => {
+    connectionRef.current?.send({ type: 'approval_resolve', approvalId, decision });
+    setEntries((prev) =>
+      prev.map((entry) =>
+        entry.role === 'approval' && entry.card.approvalId === approvalId
+          ? { ...entry, resolved: decision }
+          : entry,
+      ),
+    );
   };
 
   const reviewProject = async () => {
@@ -107,12 +171,45 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
             )}
             {entry.role === 'hermes' && (
               <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
-                <ResponseView response={entry.response} />
+                <ResponseView
+                  response={entry.response}
+                  onExecutePlan={entry.response.kind === 'plan' ? executePlan : undefined}
+                />
               </div>
             )}
             {entry.role === 'insights' && (
               <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
                 <InsightsView insights={entry.insights} />
+              </div>
+            )}
+            {entry.role === 'commands' && (
+              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+                <CommandsView commands={entry.commands} />
+              </div>
+            )}
+            {entry.role === 'terraform' && (
+              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+                <TerraformView files={entry.files} />
+              </div>
+            )}
+            {entry.role === 'approval' && (
+              <div className="max-w-[90%] text-sm">
+                <ApprovalCardView
+                  card={entry.card}
+                  resolved={entry.resolved}
+                  onResolve={(decision) => resolveApproval(entry.card.approvalId, decision)}
+                />
+              </div>
+            )}
+            {entry.role === 'result' && (
+              <div
+                className={`max-w-[90%] rounded-lg border px-3 py-2 text-sm ${
+                  entry.ok
+                    ? 'border-neutral-200 bg-white text-neutral-700'
+                    : 'border-red-200 bg-red-50 text-red-700'
+                }`}
+              >
+                {entry.summary}
               </div>
             )}
             {entry.role === 'error' && (
@@ -124,6 +221,7 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
         ))}
 
         {busy && <div className="text-sm text-neutral-400">Working…</div>}
+        <TerminalLog text={terminalLog} />
       </main>
 
       <footer className="border-t border-neutral-200 px-6 py-4">

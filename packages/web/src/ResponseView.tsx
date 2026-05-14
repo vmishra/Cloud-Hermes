@@ -1,12 +1,18 @@
-import type { HermesResponse } from '@cloud-hermes/core';
+import type { ExecutionPath, HermesResponse, PlanStep } from '@cloud-hermes/core';
 
 /**
  * Renders a HermesResponse by kind. A single dispatcher over the discriminated
- * union — the typed protocol drives the UI. This is a minimal pass; the
- * designed plan cards, approval cards, and citations come with the design
- * system.
+ * union — the typed protocol drives the UI. A plan additionally offers the
+ * three execution paths. A minimal pass; the designed plan and approval cards
+ * come with the design system.
  */
-export function ResponseView({ response }: { response: HermesResponse }) {
+export function ResponseView({
+  response,
+  onExecutePlan,
+}: {
+  response: HermesResponse;
+  onExecutePlan?: (steps: PlanStep[], path: ExecutionPath) => void;
+}) {
   switch (response.kind) {
     case 'answer':
       return (
@@ -45,10 +51,38 @@ export function ResponseView({ response }: { response: HermesResponse }) {
           <ol className="list-decimal space-y-1 pl-4 text-xs text-neutral-600">
             {response.steps.map((step, index) => (
               <li key={index}>
-                <span className="font-mono">{step.skillId}:{step.capability}</span> — {step.rationale}
+                <span className="font-mono">
+                  {step.skillId}:{step.capability}
+                </span>{' '}
+                — {step.rationale}
               </li>
             ))}
           </ol>
+          {onExecutePlan !== undefined && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => onExecutePlan(response.steps, 'run')}
+                className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs text-neutral-50"
+              >
+                Run
+              </button>
+              <button
+                type="button"
+                onClick={() => onExecutePlan(response.steps, 'commands')}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs"
+              >
+                Copy commands
+              </button>
+              <button
+                type="button"
+                onClick={() => onExecutePlan(response.steps, 'terraform')}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs"
+              >
+                Generate Terraform
+              </button>
+            </div>
+          )}
         </div>
       );
 
