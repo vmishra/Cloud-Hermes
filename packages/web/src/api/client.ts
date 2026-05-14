@@ -4,6 +4,7 @@ import type {
   HarnessId,
   GraphSlice,
   Insight,
+  HermesResponse,
 } from '@cloud-hermes/core';
 
 /**
@@ -58,6 +59,8 @@ export const api = {
   listProjects: () => getJson<{ projects: GcloudProject[] }>('/api/onboarding/projects'),
   setProject: (projectId: string) =>
     postJson<{ ok: boolean; projectId: string }>('/api/onboarding/set-project', { projectId }),
+  diagnose: (errorText: string) =>
+    postJson<{ response: HermesResponse }>('/api/onboarding/diagnose', { errorText }),
   listWorkspaces: () => getJson<{ workspaces: Workspace[] }>('/api/workspaces'),
   createWorkspace: (input: { name: string; projectId: string; harness: HarnessId }) =>
     postJson<{ workspace: Workspace }>('/api/workspaces', input),

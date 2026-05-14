@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { HarnessId, HarnessStatus, OnboardingStatus, Workspace } from '@cloud-hermes/core';
+import type {
+  HarnessId,
+  HarnessStatus,
+  HermesResponse,
+  OnboardingStatus,
+  Workspace,
+} from '@cloud-hermes/core';
 import { api, type GcloudProject } from '../../api/client';
 import { ThemeToggle, type Theme } from '../../ui/theme';
+import { ResponseView } from '../../ResponseView';
 
 /**
  * The onboarding flow.
@@ -9,8 +16,79 @@ import { ThemeToggle, type Theme } from '../../ui/theme';
  * A new workspace is linked to one Google Cloud project and one reasoning
  * harness. Onboarding detects the state of the environment and guides the
  * operator through whatever is missing, then creates the workspace and runs the
- * first state sync.
+ * first state sync. A diagnose panel is always present, so an operator who hits
+ * an error before a workspace exists can still get guided help.
  */
+
+/**
+ * The always-available "stuck?" panel. The operator pastes an error; the server
+ * grounds a diagnosis in the real environment and walks them through it.
+ */
+function DiagnoseHelp() {
+  const [open, setOpen] = useState(false);
+  const [errorText, setErrorText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<HermesResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    if (errorText.trim() === '') return;
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const { response } = await api.diagnose(errorText.trim());
+      setResult(response);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-[var(--radius-lg)] border border-border bg-elev-1">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between px-5 py-3 text-sm text-text-muted"
+      >
+        <span>Stuck? Describe what you&apos;re seeing</span>
+        <span className="text-text-subtle">{open ? '–' : '+'}</span>
+      </button>
+      {open && (
+        <div className="space-y-3 border-t border-border p-5">
+          <p className="text-xs text-text-muted">
+            Paste the exact error or command output. Cloud Hermes reads your
+            environment and walks you through it — with commands already filled in
+            for your setup.
+          </p>
+          <textarea
+            value={errorText}
+            onChange={(event) => setErrorText(event.target.value)}
+            rows={4}
+            placeholder="gcloud: command not found"
+            className="w-full resize-none rounded-md border border-border bg-surface-raised p-3 font-mono text-xs text-text outline-none focus:border-border-strong"
+          />
+          <button
+            type="button"
+            onClick={() => void run()}
+            disabled={busy || errorText.trim() === ''}
+            className="rounded-[var(--radius-lg)] bg-accent px-3.5 py-1.5 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
+          >
+            {busy ? 'Diagnosing…' : 'Diagnose'}
+          </button>
+          {error !== null && <p className="text-xs text-danger">{error}</p>}
+          {result !== null && (
+            <div className="rounded-md border border-border bg-surface-raised p-3 text-sm">
+              <ResponseView response={result} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Shell({
   children,
@@ -22,7 +100,7 @@ function Shell({
   onToggleTheme: () => void;
 }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface px-6 text-text">
+    <div className="flex min-h-dvh items-center justify-center bg-surface px-6 py-10 text-text">
       <div className="w-full max-w-lg">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="font-display text-2xl">Cloud Hermes</h1>
@@ -34,6 +112,7 @@ function Shell({
         <div className="rounded-[var(--radius-lg)] border border-border bg-elev-1 p-6">
           {children}
         </div>
+        <DiagnoseHelp />
       </div>
     </div>
   );

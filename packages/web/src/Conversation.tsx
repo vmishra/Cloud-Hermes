@@ -247,7 +247,7 @@ export function Conversation({
       <footer className="border-t border-border px-6 py-4">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
           <div className="flex items-center gap-1 text-[11px]">
-            {(['converse', 'create'] as const).map((m) => (
+            {(['converse', 'create', 'diagnose'] as const).map((m) => (
               <button
                 key={m}
                 type="button"

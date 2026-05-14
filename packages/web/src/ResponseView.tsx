@@ -1,4 +1,5 @@
 import type { ExecutionPath, HermesResponse, PlanStep } from '@cloud-hermes/core';
+import { DiagnosisView } from './DiagnosisView';
 
 /**
  * Renders a HermesResponse by kind — a single dispatcher over the discriminated
@@ -92,5 +93,8 @@ export function ResponseView({
           {response.reason ? ` — ${response.reason}` : ''}
         </p>
       );
+
+    case 'diagnosis':
+      return <DiagnosisView diagnosis={response} />;
   }
 }
