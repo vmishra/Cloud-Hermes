@@ -24,11 +24,11 @@ capabilities:
         description: INGRESS (into resources) or EGRESS (out of them).
         oneOf: [INGRESS, EGRESS]
       - name: rules
-        description: Protocol and ports, e.g. tcp:22 or tcp:80,tcp:443.
+        description: Protocol and ports with no spaces, e.g. tcp:22 or tcp:80,tcp:443.
         pattern: "^[a-z0-9:,-]+$"
       - name: sourceRanges
-        description: Comma-separated CIDR ranges the rule applies to.
-        pattern: "^[0-9.,/ ]+$"
+        description: Comma-separated CIDR ranges, no spaces, e.g. 10.0.0.0/8,192.168.0.0/16.
+        pattern: "^[0-9.,/]+$"
   - resourceType: firewall-rules
     verb: describe
     classification: READ
@@ -45,8 +45,8 @@ capabilities:
       - name: name
         pattern: "^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$"
       - name: sourceRanges
-        description: The replacement set of source CIDR ranges.
-        pattern: "^[0-9.,/ ]+$"
+        description: The replacement set of source CIDR ranges, comma-separated, no spaces.
+        pattern: "^[0-9.,/]+$"
 ---
 # Firewall rules
 
