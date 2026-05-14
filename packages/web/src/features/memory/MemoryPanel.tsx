@@ -6,7 +6,7 @@ import { api } from '../../api/client';
  * The memory panel. Per-workspace memory is markdown the operator owns — the
  * file is the source of truth, so editing here and editing the file by hand are
  * the same operation. Memory shapes future conversations; this is where the
- * operator can see and curate exactly what Hermes remembers.
+ * operator can see and curate exactly what Hermes carries forward.
  */
 export function MemoryPanel({ workspace, onClose }: { workspace: Workspace; onClose: () => void }) {
   const [content, setContent] = useState('');
@@ -37,18 +37,18 @@ export function MemoryPanel({ workspace, onClose }: { workspace: Workspace; onCl
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Memory · {workspace.name}</h2>
+        <h2 className="text-sm font-medium text-text">Memory · {workspace.name}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-600"
+          className="rounded-full border border-border px-2.5 py-1 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
         >
           Close
         </button>
       </div>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-text-muted">
         Preferences and learnings Cloud Hermes carries into future conversations — preferred
         regions, naming conventions, defaults. Edit freely; this is plain markdown.
       </p>
@@ -57,16 +57,16 @@ export function MemoryPanel({ workspace, onClose }: { workspace: Workspace; onCl
         onChange={(event) => setContent(event.target.value)}
         disabled={status === 'loading'}
         rows={16}
-        placeholder="- Prefer the europe-west1 region.\n- Name networks <env>-vpc."
-        className="flex-1 resize-none rounded-lg border border-neutral-300 bg-white p-3 font-mono text-xs outline-none focus:border-neutral-500"
+        placeholder="- Prefer the europe-west1 region.&#10;- Name networks <env>-vpc."
+        className="flex-1 resize-none rounded-[var(--radius-lg)] border border-border bg-surface-raised p-3.5 font-mono text-xs text-text outline-none transition-colors duration-150 placeholder:text-text-subtle focus:border-border-strong"
       />
-      {error !== null && <p className="text-xs text-red-600">{error}</p>}
+      {error !== null && <p className="text-xs text-danger">{error}</p>}
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => void save()}
           disabled={status === 'loading' || status === 'saving'}
-          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm text-neutral-50 disabled:opacity-40"
+          className="rounded-[var(--radius-lg)] bg-accent px-3.5 py-1.5 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
         >
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Save memory'}
         </button>

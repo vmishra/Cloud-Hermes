@@ -1,25 +1,39 @@
 import { useEffect, useState } from 'react';
 import type { HarnessId, HarnessStatus, OnboardingStatus, Workspace } from '@cloud-hermes/core';
 import { api, type GcloudProject } from '../../api/client';
+import { ThemeToggle, type Theme } from '../../ui/theme';
 
 /**
  * The onboarding flow.
  *
  * A new workspace is linked to one Google Cloud project and one reasoning
- * harness. Onboarding detects the state of the environment — is gcloud
- * installed, is it authenticated, which harnesses are ready — and guides the
- * operator through whatever is missing rather than driving fragile interactive
- * auth itself. The final step creates the workspace and runs the first state
- * sync. The designed treatment of this flow comes with the design-system pass.
+ * harness. Onboarding detects the state of the environment and guides the
+ * operator through whatever is missing, then creates the workspace and runs the
+ * first state sync.
  */
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  theme,
+  onToggleTheme,
+}: {
+  children: React.ReactNode;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-6 text-neutral-900">
+    <div className="flex min-h-dvh items-center justify-center bg-surface px-6 text-text">
       <div className="w-full max-w-lg">
-        <h1 className="mb-1 text-xl font-medium tracking-tight">Cloud Hermes</h1>
-        <p className="mb-6 text-sm text-neutral-500">Connect a Google Cloud project to begin.</p>
-        <div className="rounded-xl border border-neutral-200 bg-white p-6">{children}</div>
+        <div className="mb-1 flex items-center justify-between">
+          <h1 className="font-display text-2xl">Cloud Hermes</h1>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
+        <p className="mb-6 font-display text-base italic text-text-subtle">
+          Connect a Google Cloud project to begin.
+        </p>
+        <div className="rounded-[var(--radius-lg)] border border-border bg-elev-1 p-6">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -28,8 +42,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 function CopyableCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="flex items-center gap-2 rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-xs">
-      <code className="flex-1 overflow-x-auto whitespace-nowrap">{command}</code>
+    <div className="flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-xs">
+      <code className="flex-1 overflow-x-auto whitespace-nowrap text-text">{command}</code>
       <button
         type="button"
         onClick={() => {
@@ -37,7 +51,7 @@ function CopyableCommand({ command }: { command: string }) {
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }}
-        className="shrink-0 rounded bg-neutral-900 px-2 py-1 text-[11px] text-neutral-50"
+        className="shrink-0 rounded bg-accent px-2 py-1 text-[10px] uppercase tracking-wider text-accent-ink"
       >
         {copied ? 'copied' : 'copy'}
       </button>
@@ -50,7 +64,7 @@ function RecheckButton({ onRecheck }: { onRecheck: () => void }) {
     <button
       type="button"
       onClick={onRecheck}
-      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100"
+      className="rounded-[var(--radius-lg)] border border-border px-3 py-1.5 text-sm text-text-muted transition-colors duration-150 hover:border-border-strong"
     >
       Re-check
     </button>
@@ -60,8 +74,8 @@ function RecheckButton({ onRecheck }: { onRecheck: () => void }) {
 function InstallGcloud({ onRecheck }: { onRecheck: () => void }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium">The Google Cloud SDK is not installed</h2>
-      <p className="text-sm text-neutral-600">
+      <h2 className="text-sm font-medium text-text">The Google Cloud SDK is not installed</h2>
+      <p className="text-sm text-text-muted">
         Cloud Hermes uses <code className="font-mono">gcloud</code> to read and change your
         project. Install the SDK, then re-check.
       </p>
@@ -69,7 +83,7 @@ function InstallGcloud({ onRecheck }: { onRecheck: () => void }) {
         href="https://cloud.google.com/sdk/docs/install"
         target="_blank"
         rel="noreferrer"
-        className="inline-block text-sm text-neutral-900 underline"
+        className="inline-block text-sm text-accent underline"
       >
         Installation guide
       </a>
@@ -89,19 +103,19 @@ function Authenticate({
 }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium">Authenticate gcloud</h2>
-      <p className="text-sm text-neutral-600">
+      <h2 className="text-sm font-medium text-text">Authenticate gcloud</h2>
+      <p className="text-sm text-text-muted">
         Run these in your terminal — each opens a browser sign-in — then re-check.
       </p>
       {status.gcloud.account === null && (
         <div className="space-y-1">
-          <p className="text-xs text-neutral-500">Sign in your account</p>
+          <p className="text-xs text-text-subtle">Sign in your account</p>
           <CopyableCommand command="gcloud auth login" />
         </div>
       )}
       {!status.gcloud.adc && (
         <div className="space-y-1">
-          <p className="text-xs text-neutral-500">Set application default credentials</p>
+          <p className="text-xs text-text-subtle">Set application default credentials</p>
           <CopyableCommand command="gcloud auth application-default login" />
         </div>
       )}
@@ -115,8 +129,8 @@ function Authenticate({
 function NoHarness({ onRecheck }: { onRecheck: () => void }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium">No reasoning harness is ready</h2>
-      <p className="text-sm text-neutral-600">
+      <h2 className="text-sm font-medium text-text">No reasoning harness is ready</h2>
+      <p className="text-sm text-text-muted">
         Cloud Hermes needs the Claude Code CLI or the Gemini CLI, installed and
         authenticated. Install one, sign in, then re-check.
       </p>
@@ -169,16 +183,16 @@ function Configure({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium">Create a workspace</h2>
+      <h2 className="text-sm font-medium text-text">Create a workspace</h2>
 
       <label className="block space-y-1">
-        <span className="text-xs text-neutral-500">Google Cloud project</span>
+        <span className="text-xs text-text-subtle">Google Cloud project</span>
         <input
           list="cloud-hermes-projects"
           value={projectId}
           onChange={(event) => setProjectId(event.target.value.trim())}
           placeholder="my-project-id"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm outline-none focus:border-neutral-500"
+          className="w-full rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3 py-2 font-mono text-sm text-text outline-none focus:border-border-strong"
         />
         <datalist id="cloud-hermes-projects">
           {projects.map((project) => (
@@ -190,27 +204,27 @@ function Configure({
       </label>
 
       <label className="block space-y-1">
-        <span className="text-xs text-neutral-500">Workspace name</span>
+        <span className="text-xs text-text-subtle">Workspace name</span>
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Production network"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+          className="w-full rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3 py-2 text-sm text-text outline-none focus:border-border-strong"
         />
       </label>
 
       <div className="space-y-1">
-        <span className="text-xs text-neutral-500">Reasoning harness</span>
+        <span className="text-xs text-text-subtle">Reasoning harness</span>
         <div className="flex gap-2">
           {readyHarnesses.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setHarness(option.id)}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${
+              className={`rounded-[var(--radius-lg)] border px-3 py-1.5 text-sm transition-colors duration-150 ${
                 harness === option.id
-                  ? 'border-neutral-900 bg-neutral-900 text-neutral-50'
-                  : 'border-neutral-300'
+                  ? 'border-accent bg-accent-soft text-text'
+                  : 'border-border text-text-muted hover:border-border-strong'
               }`}
             >
               {option.id === 'claude' ? 'Claude Code' : 'Gemini'}
@@ -220,7 +234,7 @@ function Configure({
       </div>
 
       {error !== null && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-md border border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -229,7 +243,7 @@ function Configure({
         type="button"
         onClick={() => void create()}
         disabled={busy || name.trim() === '' || projectId === ''}
-        className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm text-neutral-50 disabled:opacity-40"
+        className="w-full rounded-[var(--radius-lg)] bg-accent px-4 py-2 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
       >
         {step === 'creating'
           ? 'Creating workspace…'
@@ -241,7 +255,15 @@ function Configure({
   );
 }
 
-export function Onboarding({ onComplete }: { onComplete: (workspace: Workspace) => void }) {
+export function Onboarding({
+  theme,
+  onToggleTheme,
+  onComplete,
+}: {
+  theme: Theme;
+  onToggleTheme: () => void;
+  onComplete: (workspace: Workspace) => void;
+}) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -258,9 +280,9 @@ export function Onboarding({ onComplete }: { onComplete: (workspace: Workspace) 
 
   if (error !== null) {
     return (
-      <Shell>
+      <Shell theme={theme} onToggleTheme={onToggleTheme}>
         <div className="space-y-3">
-          <p className="text-sm text-red-700">Could not reach the server — {error}</p>
+          <p className="text-sm text-danger">Could not reach the server — {error}</p>
           <RecheckButton onRecheck={load} />
         </div>
       </Shell>
@@ -269,8 +291,8 @@ export function Onboarding({ onComplete }: { onComplete: (workspace: Workspace) 
 
   if (status === null) {
     return (
-      <Shell>
-        <p className="text-sm text-neutral-500">Checking your environment…</p>
+      <Shell theme={theme} onToggleTheme={onToggleTheme}>
+        <p className="font-display text-sm italic text-text-subtle">Checking your environment…</p>
       </Shell>
     );
   }
@@ -280,7 +302,7 @@ export function Onboarding({ onComplete }: { onComplete: (workspace: Workspace) 
     status.gcloud.installed && status.gcloud.account !== null && status.gcloud.adc;
 
   return (
-    <Shell>
+    <Shell theme={theme} onToggleTheme={onToggleTheme}>
       {!status.gcloud.installed ? (
         <InstallGcloud onRecheck={load} />
       ) : !gcloudAuthed ? (

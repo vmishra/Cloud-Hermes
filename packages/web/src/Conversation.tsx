@@ -14,13 +14,13 @@ import { connectToServer, type Connection, type ConnectionState } from './ws/cli
 import { ResponseView } from './ResponseView';
 import { InsightsView } from './InsightsView';
 import { CommandsView, TerraformView, ApprovalCardView, TerminalLog } from './ExecutionViews';
+import { useVoiceInput } from './ui/useVoiceInput';
 import { api } from './api/client';
 
 /**
- * The conversation surface for a workspace. Drives a reasoning turn, an
- * on-demand project review, and the three plan-execution paths — including the
- * human-in-the-loop approval card and the live terminal log. The dual-pane
- * workspace layout and the xterm.js terminal drawer come with the design pass.
+ * The conversation surface for a workspace — a reasoning turn, an on-demand
+ * project review, the three plan-execution paths with the human-in-the-loop
+ * approval card, and a live terminal log. Voice input feeds the composer.
  */
 
 type Entry =
@@ -33,6 +33,17 @@ type Entry =
   | { id: number; role: 'result'; ok: boolean; summary: string }
   | { id: number; role: 'error'; text: string };
 
+function StatusDot({ state, busy }: { state: ConnectionState; busy: boolean }) {
+  const label = state !== 'connected' ? 'offline' : busy ? 'working' : 'standby';
+  const color = state !== 'connected' ? 'bg-border-strong' : busy ? 'bg-accent' : 'bg-success';
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={`h-2 w-2 rounded-full ${color} ${busy ? 'animate-pulse' : ''}`} />
+      <span className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">{label}</span>
+    </span>
+  );
+}
+
 export function Conversation({
   workspace,
   conversationId,
@@ -40,7 +51,6 @@ export function Conversation({
 }: {
   workspace: Workspace;
   conversationId: string;
-  /** Called when a turn finishes — the persisted transcript has changed. */
   onTurnComplete: () => void;
 }) {
   const [state, setState] = useState<ConnectionState>('connecting');
@@ -54,6 +64,10 @@ export function Conversation({
   const nextId = useRef(0);
   const newId = () => (nextId.current += 1);
   const append = (entry: Entry) => setEntries((prev) => [...prev, entry]);
+
+  const voice = useVoiceInput((transcript) =>
+    setDraft((current) => (current === '' ? transcript : `${current} ${transcript}`)),
+  );
 
   useEffect(() => {
     const connection = connectToServer({
@@ -77,12 +91,7 @@ export function Conversation({
             append({ id: newId(), role: 'approval', card: message.card, resolved: null });
             break;
           case 'execution_result':
-            append({
-              id: newId(),
-              role: 'result',
-              ok: message.ok,
-              summary: message.summary,
-            });
+            append({ id: newId(), role: 'result', ok: message.ok, summary: message.summary });
             setBusy(false);
             break;
           case 'terminal':
@@ -156,30 +165,28 @@ export function Conversation({
   };
 
   return (
-    <div className="flex flex-1 flex-col bg-neutral-50 text-neutral-900">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
-        <span className="text-sm font-medium tracking-tight">Cloud Hermes</span>
-        <span className="text-xs text-neutral-500">
-          {state === 'connected' ? 'connected' : state === 'connecting' ? 'connecting' : 'disconnected'}
-        </span>
+    <div className="flex flex-1 flex-col">
+      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+        <span className="text-sm font-medium tracking-tight text-text">{workspace.name}</span>
+        <StatusDot state={state} busy={busy} />
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-8">
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
         {entries.length === 0 && (
-          <p className="my-auto text-center text-sm text-neutral-400">
-            Ask about the project, or describe a change.
+          <p className="my-auto text-center font-display text-xl italic text-text-subtle">
+            What would you like to arrange?
           </p>
         )}
 
         {entries.map((entry) => (
           <div key={entry.id}>
             {entry.role === 'user' && (
-              <div className="ml-auto max-w-[80%] rounded-lg bg-neutral-900 px-3 py-2 text-sm text-neutral-50">
+              <div className="ml-auto max-w-[80%] rounded-[var(--radius-lg)] bg-accent-soft px-3.5 py-2 text-sm text-text">
                 {entry.text}
               </div>
             )}
             {entry.role === 'hermes' && (
-              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
                 <ResponseView
                   response={entry.response}
                   onExecutePlan={entry.response.kind === 'plan' ? executePlan : undefined}
@@ -187,22 +194,22 @@ export function Conversation({
               </div>
             )}
             {entry.role === 'insights' && (
-              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
                 <InsightsView insights={entry.insights} />
               </div>
             )}
             {entry.role === 'commands' && (
-              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
                 <CommandsView commands={entry.commands} />
               </div>
             )}
             {entry.role === 'terraform' && (
-              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
                 <TerraformView files={entry.files} />
               </div>
             )}
             {entry.role === 'approval' && (
-              <div className="max-w-[90%] text-sm">
+              <div className="max-w-[92%] text-sm">
                 <ApprovalCardView
                   card={entry.card}
                   resolved={entry.resolved}
@@ -212,37 +219,43 @@ export function Conversation({
             )}
             {entry.role === 'result' && (
               <div
-                className={`max-w-[90%] rounded-lg border px-3 py-2 text-sm ${
+                className={`max-w-[92%] rounded-[var(--radius-lg)] border px-3.5 py-2 text-sm ${
                   entry.ok
-                    ? 'border-neutral-200 bg-white text-neutral-700'
-                    : 'border-red-200 bg-red-50 text-red-700'
+                    ? 'border-border bg-elev-1 text-text-muted'
+                    : 'border-danger bg-danger-soft text-danger'
                 }`}
               >
                 {entry.summary}
               </div>
             )}
             {entry.role === 'error' && (
-              <div className="max-w-[90%] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-danger bg-danger-soft px-3.5 py-2 text-sm text-danger">
                 {entry.text}
               </div>
             )}
           </div>
         ))}
 
-        {busy && <div className="text-sm text-neutral-400">Working…</div>}
+        {busy && (
+          <p className="font-display text-sm italic text-text-subtle" aria-live="polite">
+            Thinking…
+          </p>
+        )}
         <TerminalLog text={terminalLog} />
       </main>
 
-      <footer className="border-t border-neutral-200 px-6 py-4">
+      <footer className="border-t border-border px-6 py-4">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex items-center gap-1 text-[11px]">
             {(['converse', 'create'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`rounded px-2 py-1 ${
-                  mode === m ? 'bg-neutral-900 text-neutral-50' : 'bg-neutral-200 text-neutral-600'
+                className={`rounded-full px-2.5 py-1 transition-[filter] duration-150 ${
+                  mode === m
+                    ? 'bg-accent-soft text-text'
+                    : 'bg-elev-2 text-text-muted hover:brightness-[1.05]'
                 }`}
               >
                 {m}
@@ -252,12 +265,12 @@ export function Conversation({
               type="button"
               onClick={() => void reviewProject()}
               disabled={busy}
-              className="ml-auto rounded border border-neutral-300 px-2 py-1 text-neutral-600 disabled:opacity-40"
+              className="ml-auto rounded-full border border-border px-2.5 py-1 text-text-muted transition-colors duration-150 hover:border-border-strong disabled:opacity-40"
             >
               Review project
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -268,13 +281,28 @@ export function Conversation({
                 }
               }}
               rows={2}
-              className="flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-500"
+              aria-label="Message Cloud Hermes"
+              className="flex-1 resize-none rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-text outline-none transition-colors duration-150 placeholder:text-text-subtle focus:border-border-strong"
             />
+            {voice.supported && (
+              <button
+                type="button"
+                onClick={voice.toggle}
+                aria-label={voice.listening ? 'Stop dictation' : 'Start dictation'}
+                className={`h-10 w-10 shrink-0 rounded-full border text-[11px] uppercase tracking-wider transition-colors duration-150 ${
+                  voice.listening
+                    ? 'border-accent bg-accent-soft text-text'
+                    : 'border-border text-text-muted hover:border-border-strong'
+                }`}
+              >
+                {voice.listening ? '•••' : 'mic'}
+              </button>
+            )}
             <button
               type="button"
               onClick={send}
               disabled={busy || state !== 'connected' || draft.trim() === ''}
-              className="self-end rounded-lg bg-neutral-900 px-4 py-2 text-sm text-neutral-50 disabled:opacity-40"
+              className="h-10 shrink-0 rounded-[var(--radius-lg)] bg-accent px-4 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
             >
               Send
             </button>

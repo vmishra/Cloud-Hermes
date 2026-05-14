@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
+import type { Theme } from './ui/theme';
 import { WorkspaceSidebar } from './features/history/WorkspaceSidebar';
 import { MemoryPanel } from './features/memory/MemoryPanel';
 import { Conversation } from './Conversation';
@@ -7,9 +8,7 @@ import { PastConversationView } from './PastConversationView';
 
 /**
  * The workspace shell — the sidebar plus the main pane. The main pane is the
- * live conversation, a read-only past conversation, or the memory panel. The
- * dual-pane workspace layout with the terminal drawer comes with the design
- * pass; this is the structure it is built on.
+ * live conversation, a read-only past conversation, or the memory panel.
  */
 
 type View =
@@ -19,9 +18,13 @@ type View =
 
 export function WorkspaceShell({
   workspace,
+  theme,
+  onToggleTheme,
   onSwitchWorkspace,
 }: {
   workspace: Workspace;
+  theme: Theme;
+  onToggleTheme: () => void;
   onSwitchWorkspace: (workspace: Workspace) => void;
 }) {
   const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
@@ -34,9 +37,11 @@ export function WorkspaceShell({
   };
 
   return (
-    <div className="flex min-h-dvh bg-neutral-50 text-neutral-900">
+    <div className="flex min-h-dvh bg-surface text-text">
       <WorkspaceSidebar
         workspace={workspace}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
         activeConversationId={view.kind === 'past' ? view.conversationId : conversationId}
         onNewConversation={startNewConversation}
         onOpenConversation={(id) => setView({ kind: 'past', conversationId: id })}

@@ -1,10 +1,9 @@
 import type { ExecutionPath, HermesResponse, PlanStep } from '@cloud-hermes/core';
 
 /**
- * Renders a HermesResponse by kind. A single dispatcher over the discriminated
- * union — the typed protocol drives the UI. A plan additionally offers the
- * three execution paths. A minimal pass; the designed plan and approval cards
- * come with the design system.
+ * Renders a HermesResponse by kind — a single dispatcher over the discriminated
+ * union, so the typed protocol drives the UI. A plan additionally offers the
+ * three execution paths.
  */
 export function ResponseView({
   response,
@@ -17,9 +16,9 @@ export function ResponseView({
     case 'answer':
       return (
         <div className="space-y-2">
-          <p className="whitespace-pre-wrap">{response.markdown}</p>
+          <p className="whitespace-pre-wrap leading-relaxed">{response.markdown}</p>
           {response.citations.length > 0 && (
-            <ul className="border-t border-neutral-100 pt-2 text-xs text-neutral-500">
+            <ul className="border-t border-border pt-2 text-xs text-text-subtle">
               {response.citations.map((citation, index) => (
                 <li key={index}>
                   {citation.label}
@@ -34,9 +33,9 @@ export function ResponseView({
 
     case 'clarifying_questions':
       return (
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-wide text-neutral-400">A few questions</p>
-          <ul className="list-disc space-y-1 pl-4">
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">A few questions</p>
+          <ul className="list-disc space-y-1 pl-4 text-text-muted">
             {response.questions.map((question) => (
               <li key={question.id}>{question.question}</li>
             ))}
@@ -46,12 +45,12 @@ export function ResponseView({
 
     case 'plan':
       return (
-        <div className="space-y-2">
-          <p className="font-medium">{response.summary}</p>
-          <ol className="list-decimal space-y-1 pl-4 text-xs text-neutral-600">
+        <div className="space-y-2.5">
+          <p className="font-medium text-text">{response.summary}</p>
+          <ol className="list-decimal space-y-1 pl-4 text-xs text-text-muted">
             {response.steps.map((step, index) => (
               <li key={index}>
-                <span className="font-mono">
+                <span className="font-mono text-text">
                   {step.skillId}:{step.capability}
                 </span>{' '}
                 — {step.rationale}
@@ -63,21 +62,21 @@ export function ResponseView({
               <button
                 type="button"
                 onClick={() => onExecutePlan(response.steps, 'run')}
-                className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs text-neutral-50"
+                className="rounded-full bg-accent px-3 py-1.5 text-xs text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04]"
               >
                 Run
               </button>
               <button
                 type="button"
                 onClick={() => onExecutePlan(response.steps, 'commands')}
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs"
+                className="rounded-full border border-border px-3 py-1.5 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
               >
                 Copy commands
               </button>
               <button
                 type="button"
                 onClick={() => onExecutePlan(response.steps, 'terraform')}
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs"
+                className="rounded-full border border-border px-3 py-1.5 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
               >
                 Generate Terraform
               </button>
@@ -88,7 +87,7 @@ export function ResponseView({
 
     case 'skill_request':
       return (
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-text-subtle">
           Loading skills: {response.skills.join(', ')}
           {response.reason ? ` — ${response.reason}` : ''}
         </p>

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
 import { api } from './api/client';
+import { useTheme } from './ui/theme';
 import { Onboarding } from './features/onboarding/Onboarding';
 import { WorkspaceShell } from './WorkspaceShell';
 
 /**
  * The shell router. On load it asks the server what exists: with no workspace,
- * it shows onboarding; with one, it opens the conversation. The dual-pane
- * workspace layout is built on top of this in the design-system pass.
+ * it shows onboarding; with one, it opens the workspace. Theme is owned here —
+ * light by default — and threaded down.
  */
 
 const ACTIVE_WORKSPACE_KEY = 'cloud-hermes:active-workspace';
@@ -19,6 +20,7 @@ type Phase =
 
 export function App() {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     api
@@ -36,8 +38,8 @@ export function App() {
 
   if (phase.kind === 'loading') {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-neutral-50 text-sm text-neutral-400">
-        Loading…
+      <div className="flex min-h-dvh items-center justify-center bg-surface text-sm text-text-subtle">
+        <span className="font-display italic">Waking the harness…</span>
       </div>
     );
   }
@@ -45,6 +47,8 @@ export function App() {
   if (phase.kind === 'onboarding') {
     return (
       <Onboarding
+        theme={theme}
+        onToggleTheme={toggle}
         onComplete={(workspace) => {
           localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id);
           setPhase({ kind: 'workspace', workspace });
@@ -57,6 +61,8 @@ export function App() {
     <WorkspaceShell
       key={phase.workspace.id}
       workspace={phase.workspace}
+      theme={theme}
+      onToggleTheme={toggle}
       onSwitchWorkspace={(workspace) => {
         localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id);
         setPhase({ kind: 'workspace', workspace });

@@ -28,20 +28,20 @@ export function PastConversationView({
   }, [workspace.id, conversationId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Conversation history</h2>
+        <h2 className="text-sm font-medium text-text">Conversation history</h2>
         <button
           type="button"
           onClick={onBack}
-          className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-600"
+          className="rounded-full border border-border px-2.5 py-1 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
         >
           Back to conversation
         </button>
       </div>
-      {error !== null && <p className="text-xs text-red-600">{error}</p>}
+      {error !== null && <p className="text-xs text-danger">{error}</p>}
       {markdown !== null && (
-        <pre className="flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-neutral-200 bg-white p-4 text-sm">
+        <pre className="flex-1 overflow-auto whitespace-pre-wrap rounded-[var(--radius-lg)] border border-border bg-elev-1 p-4 text-sm text-text">
           {markdown}
         </pre>
       )}
