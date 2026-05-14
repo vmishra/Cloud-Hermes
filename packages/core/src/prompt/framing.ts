@@ -34,8 +34,10 @@ The JSON block is one of:
 
   plan — a proposed set of changes, each step naming a skill capability.
     { "kind": "plan", "summary": string,
-      "steps": [ { "skillId": string, "capability": string,
+      "steps": [ { "skillId": string,
+                   "capability": "<verb>" or "<resourceType>:<verb>",
                    "params": { [name: string]: string }, "rationale": string } ] }
+    Use the params each capability declares — names, regions, ranges, and so on.
 
   skill_request — you need skills loaded before you can plan.
     { "kind": "skill_request", "skills": string[], "reason"?: string }
