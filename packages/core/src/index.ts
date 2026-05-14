@@ -7,4 +7,5 @@
  */
 export * from './schemas/index';
 export * from './providers/index';
+export * from './prompt/index';
 export * from './types';
