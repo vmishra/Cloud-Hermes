@@ -23,6 +23,8 @@ import {
 export interface TurnInput {
   mode: ConversationMode;
   userMessage: string;
+  /** A compact, deterministic summary of the workspace's synced project state. */
+  stateSummary?: string;
   signal?: AbortSignal;
 }
 
@@ -42,7 +44,11 @@ export async function runTurn(
   const systemFraming = buildSystemFraming(input.mode);
 
   try {
-    const firstPrompt = assemblePrompt({ systemFraming, userMessage: input.userMessage });
+    const firstPrompt = assemblePrompt({
+      systemFraming,
+      stateSummary: input.stateSummary,
+      userMessage: input.userMessage,
+    });
     const first = await provider.invoke({ prompt: firstPrompt, signal: input.signal });
 
     const parsed = parseHermesResponse(first.text);
@@ -58,6 +64,7 @@ export async function runTurn(
     // Salvage failed deterministically — spend exactly one structured re-ask.
     const reaskPrompt = assemblePrompt({
       systemFraming,
+      stateSummary: input.stateSummary,
       history: `The user asked:\n${input.userMessage}\n\nYou replied with something that could not be parsed.`,
       userMessage: REASK_INSTRUCTION,
     });

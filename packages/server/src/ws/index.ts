@@ -1,21 +1,28 @@
 import type { FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
-import { ClientMessage, type HarnessProvider, type ServerMessage } from '@cloud-hermes/core';
+import {
+  ClientMessage,
+  summarizeGraph,
+  type HarnessProvider,
+  type ServerMessage,
+} from '@cloud-hermes/core';
 import { SERVER_VERSION } from '../config';
 import { runTurn } from '../harness/index';
+import type { WorkspaceStore } from '../workspace/index';
 
 /**
  * Registers the `/ws` WebSocket route — the single channel between the web
  * client and the server.
  *
  * Every inbound frame is validated against the shared `ClientMessage` schema.
- * A `user_message` runs one reasoning turn through the harness; turns are
- * serialized per conversation so a second message cannot interleave with one
- * already in flight.
+ * A `user_message` runs one reasoning turn, grounded in the workspace's synced
+ * resource graph. Turns are serialized per conversation so a second message
+ * cannot interleave with one already in flight.
  */
 export interface WebSocketDeps {
   /** The resolved reasoning provider, or null if none is available. */
   provider: HarnessProvider | null;
+  store: WorkspaceStore;
 }
 
 export async function registerWebSocket(
@@ -56,11 +63,9 @@ export async function registerWebSocket(
         case 'ping':
           send({ type: 'pong' });
           return;
-
         case 'user_message':
           void handleUserMessage(message);
           return;
-
         case 'approval_resolve':
         case 'abort':
           send({
@@ -83,7 +88,7 @@ export async function registerWebSocket(
         });
         return;
       }
-      if (!deps.provider) {
+      if (deps.provider === null) {
         send({
           type: 'error',
           code: 'cli-not-found',
@@ -94,10 +99,16 @@ export async function registerWebSocket(
 
       busy.add(message.conversationId);
       try {
+        // Ground the turn in the workspace's most recent synced project state.
+        const graph = await deps.store.loadGraph(message.workspaceId);
+        const stateSummary = graph !== null ? summarizeGraph(graph) : undefined;
+
         const turn = await runTurn(deps.provider, {
           mode: message.mode,
           userMessage: message.text,
+          stateSummary,
         });
+
         if (turn.ok) {
           send({
             type: 'hermes_response',

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   PROVIDER_PROFILES,
+  runInsights,
   type HarnessStatus,
   type OnboardingStatus,
   type ProviderId,
@@ -97,5 +98,16 @@ export async function registerOnboardingRoutes(
       nodeCount: graph.nodes.length,
       slices: graph.slices,
     };
+  });
+
+  app.get('/api/workspaces/:id/insights', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const graph = await deps.store.loadGraph(id);
+    if (graph === null) {
+      return reply
+        .status(404)
+        .send({ error: 'No synced state for this workspace yet — run a sync first.' });
+    }
+    return { syncedAt: graph.syncedAt, insights: runInsights(graph) };
   });
 }
