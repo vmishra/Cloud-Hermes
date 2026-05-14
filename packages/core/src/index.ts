@@ -6,4 +6,5 @@
  * bind to a single source of truth.
  */
 export * from './schemas/index';
+export * from './providers/index';
 export * from './types';
