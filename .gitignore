@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# runtime workspace data — synced GCP state, conversation markdown, memory, audit logs
+workspaces/
+
+# local environment
+.env
+.env.local
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# local working references — kept on disk so context survives a restart, never committed
+PLAN.md
+learning.md
