@@ -1,0 +1,101 @@
+import type { FastifyInstance } from 'fastify';
+import {
+  PROVIDER_PROFILES,
+  type HarnessStatus,
+  type OnboardingStatus,
+  type ProviderId,
+} from '@cloud-hermes/core';
+import { createHarnessProvider } from '../harness/index';
+import { syncState } from '../gcp/index';
+import { checkAuthStatus, isValidProjectId, listProjects, setProject } from '../onboarding/index';
+import type { WorkspaceStore } from '../workspace/index';
+
+/**
+ * Onboarding REST routes.
+ *
+ * Onboarding is request/response — workspace creation, gcloud detection,
+ * project selection — so it lives on REST routes rather than the streaming
+ * WebSocket channel. The one slow step, the first state sync, is its own
+ * endpoint so the UI can show progress around it.
+ */
+
+export interface OnboardingRouteDeps {
+  store: WorkspaceStore;
+}
+
+export async function registerOnboardingRoutes(
+  app: FastifyInstance,
+  deps: OnboardingRouteDeps,
+): Promise<void> {
+  app.get('/api/onboarding/status', async (): Promise<OnboardingStatus> => {
+    const [gcloud, workspaces] = await Promise.all([checkAuthStatus(), deps.store.list()]);
+
+    const harnesses: HarnessStatus[] = [];
+    for (const id of Object.keys(PROVIDER_PROFILES) as ProviderId[]) {
+      const provider = createHarnessProvider(PROVIDER_PROFILES[id]);
+      const availability = await provider.checkAvailability();
+      harnesses.push({
+        id,
+        installed: availability.available,
+        ready: availability.available,
+        detail: availability.available
+          ? (availability.version ?? 'available')
+          : (availability.reason ?? 'not found'),
+      });
+    }
+
+    return { gcloud, harnesses, workspaces };
+  });
+
+  app.get('/api/onboarding/projects', async () => ({ projects: await listProjects() }));
+
+  app.post('/api/onboarding/set-project', async (request, reply) => {
+    const body = request.body as { projectId?: unknown };
+    const projectId = typeof body?.projectId === 'string' ? body.projectId : '';
+    if (!isValidProjectId(projectId)) {
+      return reply.status(400).send({ error: 'That is not a valid Google Cloud project id.' });
+    }
+    if (!(await setProject(projectId))) {
+      return reply.status(502).send({ error: 'gcloud could not set the project.' });
+    }
+    return { ok: true, projectId };
+  });
+
+  app.get('/api/workspaces', async () => ({ workspaces: await deps.store.list() }));
+
+  app.post('/api/workspaces', async (request, reply) => {
+    const body = request.body as { name?: unknown; projectId?: unknown; harness?: unknown };
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    const projectId = typeof body?.projectId === 'string' ? body.projectId.trim() : '';
+    const harness = body?.harness;
+
+    if (name === '') {
+      return reply.status(400).send({ error: 'A workspace name is required.' });
+    }
+    if (!isValidProjectId(projectId)) {
+      return reply.status(400).send({ error: 'That is not a valid Google Cloud project id.' });
+    }
+    if (harness !== 'claude' && harness !== 'gemini') {
+      return reply.status(400).send({ error: 'harness must be "claude" or "gemini".' });
+    }
+
+    const workspace = await deps.store.create({ name, projectId, harness });
+    return reply.status(201).send({ workspace });
+  });
+
+  app.post('/api/workspaces/:id/sync', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const workspace = await deps.store.load(id);
+    if (workspace === null) {
+      return reply.status(404).send({ error: 'Workspace not found.' });
+    }
+
+    const { graph, raw } = await syncState(workspace.projectId);
+    await deps.store.saveGraph(id, graph, raw);
+    return {
+      syncedAt: graph.syncedAt,
+      nodeCount: graph.nodes.length,
+      slices: graph.slices,
+    };
+  });
+}
