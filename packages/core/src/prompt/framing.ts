@@ -42,6 +42,10 @@ The JSON block is one of:
   skill_request — you need skills loaded before you can plan.
     { "kind": "skill_request", "skills": string[], "reason"?: string }
 
+  diagnosis — a step-by-step resolution for an error or log the user pasted in.
+    { "kind": "diagnosis", "summary": string, "rootCause"?: string,
+      "steps": [ { "instruction": string, "command"?: string, "verify"?: string } ] }
+
 Rules that do not bend:
   - Never propose a destructive operation. No delete, no destroy, no removal of
     resources. Cloud Hermes does not support them, and a plan containing one is
@@ -61,8 +65,38 @@ const CONVERSE_FRAMING = `You are in converse mode. The user is asking about the
 project as it exists today. Answer from the state you are given, with citations.
 This mode is read-only — do not produce a plan here.`;
 
+const DIAGNOSE_FRAMING = `You are in diagnose mode. The user has pasted an error,
+a log, or a description of something that is not working — during setup, or
+while running a command — and you are walking them through fixing it.
+
+You are given an environment report (what is installed, the gcloud auth state,
+the configured project, the workspace) and a troubleshooting knowledge base.
+Reason about the error against that real environment, and respond with a
+diagnosis: a short summary, the root cause if you can name it, and ordered steps.
+
+The steps must be genuinely usable, not generic:
+  - Every command you give must use the operator's real values from the
+    environment report — the actual project id, account, paths. Never write a
+    PLACEHOLDER, a <BRACKETED_VALUE>, or "your-project-id". If you need a value
+    that is not in the report, do not guess — respond with clarifying_questions
+    and ask for it.
+  - Keep each step to one action, with a command when there is one and a short
+    "verify" line for how the user confirms it worked.
+  - Order the steps so the most likely fix comes first.
+  - Remediation is non-destructive — installs, auth, config, enabling an API.
+    Never suggest deleting or destroying anything; if a fix would, say so and
+    stop.
+
+If the pasted text is too little to work from, ask for the exact command they
+ran and its full output with clarifying_questions.`;
+
 /** Builds the system framing for a conversation mode. */
 export function buildSystemFraming(mode: ConversationMode): string {
-  const modeFraming = mode === 'create' ? CREATE_FRAMING : CONVERSE_FRAMING;
+  const modeFraming =
+    mode === 'create'
+      ? CREATE_FRAMING
+      : mode === 'diagnose'
+        ? DIAGNOSE_FRAMING
+        : CONVERSE_FRAMING;
   return `${SHARED_FRAMING}\n\n${modeFraming}`;
 }

@@ -15,4 +15,5 @@ export * from './skills/index';
 export * from './insights/index';
 export * from './memory/index';
 export * from './conversations/index';
+export * from './diagnostics/index';
 export * from './types';

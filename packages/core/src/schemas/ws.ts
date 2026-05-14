@@ -6,7 +6,7 @@ import { HermesResponse, PlanStep } from './hermes';
  * in the shared core package, so both ends bind to one contract.
  */
 
-export const ConversationMode = z.enum(['create', 'converse']);
+export const ConversationMode = z.enum(['create', 'converse', 'diagnose']);
 
 /** The source subprocess behind a terminal stream event. */
 export const TerminalSource = z.enum(['harness', 'gcloud', 'terraform', 'auth']);

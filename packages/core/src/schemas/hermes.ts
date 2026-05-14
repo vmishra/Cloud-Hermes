@@ -62,11 +62,32 @@ export const SkillRequestResponse = z.object({
   reason: z.string().optional(),
 });
 
+/**
+ * One step of a guided resolution: an instruction, an optional command to run
+ * (already filled in with the operator's real environment values — never a
+ * placeholder), and an optional way to confirm the step worked.
+ */
+export const DiagnosisStep = z.object({
+  instruction: z.string(),
+  command: z.string().optional(),
+  verify: z.string().optional(),
+});
+
+/** A step-by-step resolution for an error or log the operator pasted in. */
+export const DiagnosisResponse = z.object({
+  kind: z.literal('diagnosis'),
+  summary: z.string(),
+  /** What is actually wrong, when it can be identified. */
+  rootCause: z.string().optional(),
+  steps: z.array(DiagnosisStep).min(1),
+});
+
 export const HermesResponse = z.discriminatedUnion('kind', [
   ClarifyingQuestionsResponse,
   PlanResponse,
   AnswerResponse,
   SkillRequestResponse,
+  DiagnosisResponse,
 ]);
 
 export type ClarifyingQuestion = z.infer<typeof ClarifyingQuestion>;
@@ -76,5 +97,7 @@ export type PlanResponse = z.infer<typeof PlanResponse>;
 export type Citation = z.infer<typeof Citation>;
 export type AnswerResponse = z.infer<typeof AnswerResponse>;
 export type SkillRequestResponse = z.infer<typeof SkillRequestResponse>;
+export type DiagnosisStep = z.infer<typeof DiagnosisStep>;
+export type DiagnosisResponse = z.infer<typeof DiagnosisResponse>;
 export type HermesResponse = z.infer<typeof HermesResponse>;
 export type HermesResponseKind = HermesResponse['kind'];

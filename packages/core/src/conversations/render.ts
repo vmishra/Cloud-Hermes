@@ -35,5 +35,17 @@ export function renderResponseMarkdown(response: HermesResponse): string {
       ].join('\n');
     case 'skill_request':
       return `_Loading skills: ${response.skills.join(', ')}_`;
+    case 'diagnosis':
+      return [
+        `**Diagnosis:** ${response.summary}`,
+        ...(response.rootCause !== undefined ? ['', `Root cause: ${response.rootCause}`] : []),
+        '',
+        ...response.steps.flatMap((step, index) => {
+          const lines = [`${index + 1}. ${step.instruction}`];
+          if (step.command !== undefined) lines.push('', `   \`${step.command}\``);
+          if (step.verify !== undefined) lines.push(`   _Verify:_ ${step.verify}`);
+          return lines;
+        }),
+      ].join('\n');
   }
 }
