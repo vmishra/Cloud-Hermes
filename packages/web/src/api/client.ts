@@ -1,4 +1,10 @@
-import type { OnboardingStatus, Workspace, HarnessId, GraphSlice } from '@cloud-hermes/core';
+import type {
+  OnboardingStatus,
+  Workspace,
+  HarnessId,
+  GraphSlice,
+  Insight,
+} from '@cloud-hermes/core';
 
 /**
  * The REST client for onboarding and workspace management. The streaming
@@ -46,4 +52,6 @@ export const api = {
     postJson<{ workspace: Workspace }>('/api/workspaces', input),
   syncWorkspace: (id: string) =>
     postJson<SyncResult>(`/api/workspaces/${id}/sync`, {}),
+  workspaceInsights: (id: string) =>
+    getJson<{ syncedAt: string; insights: Insight[] }>(`/api/workspaces/${id}/insights`),
 };

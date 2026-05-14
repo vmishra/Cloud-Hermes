@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ConversationMode, HermesResponse, Workspace } from '@cloud-hermes/core';
+import type { ConversationMode, HermesResponse, Insight, Workspace } from '@cloud-hermes/core';
 import { connectToServer, type Connection, type ConnectionState } from './ws/client';
 import { ResponseView } from './ResponseView';
+import { InsightsView } from './InsightsView';
+import { api } from './api/client';
 
 /**
- * The conversation surface for a workspace. A minimal pass that drives one
- * reasoning turn end to end; the dual-pane workspace, operating-loop stages,
- * and terminal view are built on top of this in later steps.
+ * The conversation surface for a workspace. Drives one reasoning turn end to
+ * end, grounded in the workspace's synced project state, and runs an on-demand
+ * project review. The dual-pane workspace, operating-loop stages, and terminal
+ * view are built on top of this in the design-system pass.
  */
 
 type Entry =
   | { id: number; role: 'user'; text: string }
   | { id: number; role: 'hermes'; response: HermesResponse }
+  | { id: number; role: 'insights'; insights: Insight[] }
   | { id: number; role: 'error'; text: string };
 
 export function Conversation({ workspace }: { workspace: Workspace }) {
@@ -25,19 +29,17 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
   const connectionRef = useRef<Connection | null>(null);
   const nextId = useRef(0);
   const newId = () => (nextId.current += 1);
+  const append = (entry: Entry) => setEntries((prev) => [...prev, entry]);
 
   useEffect(() => {
     const connection = connectToServer({
       onState: setState,
       onMessage: (message) => {
         if (message.type === 'hermes_response') {
-          setEntries((prev) => [...prev, { id: newId(), role: 'hermes', response: message.response }]);
+          append({ id: newId(), role: 'hermes', response: message.response });
           setBusy(false);
         } else if (message.type === 'error') {
-          setEntries((prev) => [
-            ...prev,
-            { id: newId(), role: 'error', text: `${message.code}: ${message.message}` },
-          ]);
+          append({ id: newId(), role: 'error', text: `${message.code}: ${message.message}` });
           setBusy(false);
         }
       },
@@ -49,11 +51,34 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
   const send = () => {
     const text = draft.trim();
     if (text === '' || busy || state !== 'connected') return;
-    const sent = connectionRef.current?.send({ type: 'user_message', conversationId, mode, text });
+    const sent = connectionRef.current?.send({
+      type: 'user_message',
+      conversationId,
+      workspaceId: workspace.id,
+      mode,
+      text,
+    });
     if (sent !== true) return;
-    setEntries((prev) => [...prev, { id: newId(), role: 'user', text }]);
+    append({ id: newId(), role: 'user', text });
     setDraft('');
     setBusy(true);
+  };
+
+  const reviewProject = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { insights } = await api.workspaceInsights(workspace.id);
+      append({ id: newId(), role: 'insights', insights });
+    } catch (caught) {
+      append({
+        id: newId(),
+        role: 'error',
+        text: caught instanceof Error ? caught.message : String(caught),
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -85,6 +110,11 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
                 <ResponseView response={entry.response} />
               </div>
             )}
+            {entry.role === 'insights' && (
+              <div className="max-w-[90%] rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+                <InsightsView insights={entry.insights} />
+              </div>
+            )}
             {entry.role === 'error' && (
               <div className="max-w-[90%] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {entry.text}
@@ -93,12 +123,12 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
           </div>
         ))}
 
-        {busy && <div className="text-sm text-neutral-400">Thinking…</div>}
+        {busy && <div className="text-sm text-neutral-400">Working…</div>}
       </main>
 
       <footer className="border-t border-neutral-200 px-6 py-4">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
-          <div className="flex gap-1 text-xs">
+          <div className="flex items-center gap-1 text-xs">
             {(['converse', 'create'] as const).map((m) => (
               <button
                 key={m}
@@ -111,6 +141,14 @@ export function Conversation({ workspace }: { workspace: Workspace }) {
                 {m}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => void reviewProject()}
+              disabled={busy}
+              className="ml-auto rounded border border-neutral-300 px-2 py-1 text-neutral-600 disabled:opacity-40"
+            >
+              Review project
+            </button>
           </div>
           <div className="flex gap-2">
             <textarea
