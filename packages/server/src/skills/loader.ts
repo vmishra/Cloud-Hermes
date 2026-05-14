@@ -31,11 +31,14 @@ export interface SkillCatalog {
   manifest: SkillManifest;
   /** Capability tables for the safety guard, derived from skill frontmatter. */
   capabilityTables: CapabilityTable[];
+  /** Terraform templates, keyed by file name. */
+  templates: Map<string, string>;
   /** Files that failed to load — surfaced, never swallowed. */
   errors: { path: string; error: string }[];
 }
 
 const SERVICES_SUBDIR = 'services';
+const TEMPLATES_SUBDIR = 'templates';
 const MANIFEST_FILENAME = 'manifest.json';
 
 async function readManifest(path: string): Promise<SkillManifest | null> {
@@ -47,14 +50,38 @@ async function readManifest(path: string): Promise<SkillManifest | null> {
   }
 }
 
+async function loadTemplates(root: string): Promise<Map<string, string>> {
+  const templates = new Map<string, string>();
+  const templatesDir = join(root, TEMPLATES_SUBDIR);
+  let files: string[];
+  try {
+    files = (await readdir(templatesDir)).filter((name) => name.endsWith('.tmpl'));
+  } catch {
+    return templates;
+  }
+  for (const file of files) {
+    try {
+      templates.set(file, await readFile(join(templatesDir, file), 'utf8'));
+    } catch {
+      // a missing template surfaces later as an unresolved Terraform path
+    }
+  }
+  return templates;
+}
+
 export async function loadSkillCatalog(roots: readonly string[]): Promise<SkillCatalog> {
   const skills = new Map<string, ParsedSkill>();
   const capabilityTables: CapabilityTable[] = [];
+  const templates = new Map<string, string>();
   const errors: { path: string; error: string }[] = [];
   const entries: ManifestEntry[] = [];
   const stamps: FileStamp[] = [];
 
   for (const root of roots) {
+    for (const [name, content] of await loadTemplates(root)) {
+      templates.set(name, content);
+    }
+
     const servicesDir = join(root, SERVICES_SUBDIR);
     let files: string[];
     try {
@@ -115,5 +142,5 @@ export async function loadSkillCatalog(roots: readonly string[]): Promise<SkillC
     }
   }
 
-  return { skills, manifest, capabilityTables, errors };
+  return { skills, manifest, capabilityTables, templates, errors };
 }
