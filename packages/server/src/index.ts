@@ -41,7 +41,7 @@ app.get('/health', async () => ({
 }));
 
 await registerOnboardingRoutes(app, { store });
-await registerWebSocket(app, { provider, store });
+await registerWebSocket(app, { provider, store, catalog });
 
 try {
   await app.listen({ host: HOST, port: PORT });

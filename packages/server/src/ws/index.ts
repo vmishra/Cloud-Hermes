@@ -3,26 +3,31 @@ import type { RawData, WebSocket } from 'ws';
 import {
   ClientMessage,
   summarizeGraph,
+  type ApprovalCard,
   type HarnessProvider,
   type ServerMessage,
 } from '@cloud-hermes/core';
 import { SERVER_VERSION } from '../config';
 import { runTurn } from '../harness/index';
+import { buildSkillsSection, type SkillCatalog } from '../skills/index';
+import { runExecution } from '../execution/index';
 import type { WorkspaceStore } from '../workspace/index';
 
 /**
  * Registers the `/ws` WebSocket route — the single channel between the web
  * client and the server.
  *
- * Every inbound frame is validated against the shared `ClientMessage` schema.
- * A `user_message` runs one reasoning turn, grounded in the workspace's synced
- * resource graph. Turns are serialized per conversation so a second message
- * cannot interleave with one already in flight.
+ * A `user_message` runs one reasoning turn grounded in the workspace's synced
+ * state, with create-mode progressive skill loading. An `execute_plan` runs the
+ * chosen execution path; the direct path pauses on a blast-radius approval card
+ * — a per-conversation pending promise the operator resolves — and is
+ * fail-closed: a disconnect, an abort, or the connection closing denies every
+ * pending approval. Turns and executions are serialized per conversation.
  */
 export interface WebSocketDeps {
-  /** The resolved reasoning provider, or null if none is available. */
   provider: HarnessProvider | null;
   store: WorkspaceStore;
+  catalog: SkillCatalog;
 }
 
 export async function registerWebSocket(
@@ -34,10 +39,20 @@ export async function registerWebSocket(
       socket.send(JSON.stringify(message));
     };
 
-    /** Conversation ids with a turn currently in flight on this connection. */
+    /** Conversation ids with a turn or execution currently in flight. */
     const busy = new Set<string>();
+    /** Pending approval resolvers, keyed by approval id. */
+    const pendingApprovals = new Map<string, (decision: 'approved' | 'denied') => void>();
+
+    /** Fail-closed: resolve every pending approval to denied. */
+    const denyAllPending = (): void => {
+      for (const resolve of pendingApprovals.values()) resolve('denied');
+      pendingApprovals.clear();
+    };
 
     send({ type: 'connected', serverVersion: SERVER_VERSION });
+
+    socket.on('close', denyAllPending);
 
     socket.on('message', (raw: RawData) => {
       let parsed: unknown;
@@ -66,13 +81,17 @@ export async function registerWebSocket(
         case 'user_message':
           void handleUserMessage(message);
           return;
-        case 'approval_resolve':
+        case 'execute_plan':
+          void handleExecutePlan(message);
+          return;
+        case 'approval_resolve': {
+          const resolve = pendingApprovals.get(message.approvalId);
+          if (resolve !== undefined) resolve(message.decision);
+          return;
+        }
         case 'abort':
-          send({
-            type: 'error',
-            code: 'not-implemented',
-            message: `'${message.type}' is handled in a later build step.`,
-          });
+          // A new intent supersedes anything awaiting approval — fail closed.
+          denyAllPending();
           return;
       }
     });
@@ -81,11 +100,7 @@ export async function registerWebSocket(
       message: Extract<ClientMessage, { type: 'user_message' }>,
     ): Promise<void> {
       if (busy.has(message.conversationId)) {
-        send({
-          type: 'error',
-          code: 'busy',
-          message: 'A turn is already in progress for this conversation.',
-        });
+        send({ type: 'error', code: 'busy', message: 'A turn is already in progress.' });
         return;
       }
       if (deps.provider === null) {
@@ -99,7 +114,6 @@ export async function registerWebSocket(
 
       busy.add(message.conversationId);
       try {
-        // Ground the turn in the workspace's most recent synced project state.
         const graph = await deps.store.loadGraph(message.workspaceId);
         const stateSummary = graph !== null ? summarizeGraph(graph) : undefined;
 
@@ -107,6 +121,11 @@ export async function registerWebSocket(
           mode: message.mode,
           userMessage: message.text,
           stateSummary,
+          // Create mode gets progressive skill loading; converse mode does not.
+          buildSkillsSection:
+            message.mode === 'create'
+              ? (ids) => buildSkillsSection(deps.catalog, ids)
+              : undefined,
         });
 
         if (turn.ok) {
@@ -123,6 +142,46 @@ export async function registerWebSocket(
           type: 'error',
           code: 'internal',
           message: err instanceof Error ? err.message : 'The reasoning step failed.',
+        });
+      } finally {
+        busy.delete(message.conversationId);
+      }
+    }
+
+    async function handleExecutePlan(
+      message: Extract<ClientMessage, { type: 'execute_plan' }>,
+    ): Promise<void> {
+      if (busy.has(message.conversationId)) {
+        send({ type: 'error', code: 'busy', message: 'A turn is already in progress.' });
+        return;
+      }
+
+      busy.add(message.conversationId);
+      try {
+        const policy = await deps.store.loadPolicy(message.workspaceId);
+        await runExecution({
+          path: message.path,
+          steps: message.steps,
+          conversationId: message.conversationId,
+          workspaceId: message.workspaceId,
+          catalog: deps.catalog,
+          store: deps.store,
+          policy,
+          emit: send,
+          requestApproval: (card: ApprovalCard) =>
+            new Promise<'approved' | 'denied'>((resolve) => {
+              pendingApprovals.set(card.approvalId, (decision) => {
+                pendingApprovals.delete(card.approvalId);
+                resolve(decision);
+              });
+              send({ type: 'approval_required', conversationId: message.conversationId, card });
+            }),
+        });
+      } catch (err) {
+        send({
+          type: 'error',
+          code: 'internal',
+          message: err instanceof Error ? err.message : 'The execution failed.',
         });
       } finally {
         busy.delete(message.conversationId);
