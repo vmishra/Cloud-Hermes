@@ -137,6 +137,17 @@ bounded. A skill that fails schema validation is **excluded and fails the build*
 - **Fail-closed approvals**: a disconnect / abort / new message denies every
   pending approval.
 - **Provider abstraction**: `CloudProvider` seam for future AWS; GCP-only now.
+- **Google Cloud MCP** (`server/src/mcp/`): Hermes — never the reasoning CLI —
+  acts as a **read-only MCP client**, confined to the Observe stage. Opt-in via
+  `CLOUD_HERMES_MCP_ENABLED=1`; off by default. When on, `syncState` adds a
+  Cloud Asset Inventory slice so the resource graph covers the whole project
+  (Execute stays gated by the classifier exactly as before). Read-only is *not*
+  client-enforceable — `tools/list` returns every tool; it is enforced by IAM
+  deny policies and, in practice, by scoping the operator's credentials to
+  viewer roles. The client is disciplined (calls only a discovered read-only
+  enumeration tool, honours `readOnlyHint`). Auth: ADC bearer token +
+  `x-goog-user-project` header. Full decision and the live-validation caveat:
+  `docs/MCP-INTEGRATION.md`.
 
 ---
 
@@ -263,14 +274,10 @@ Cloud-Hermes/
 - xterm.js terminal drawer (currently a styled `<pre>` log).
 - ⌘K command palette.
 - The end-of-conversation memory-extraction pass (memory panel + injection exist).
-- **Google Cloud MCP server** integration — decided, deferred to v2. Hermes as a
-  **read-only MCP client** feeding the Observe stage: a project-wide resource
-  graph via Cloud Asset Inventory, richer Insights via the observability
-  servers. The reasoning CLI is **never** an MCP client (it would bypass the
-  guard). Auth is already covered by onboarding's ADC step. Full decision in
-  `docs/MCP-INTEGRATION.md`.
 - Multi-user accounts and shared team workspaces (data model is local-first but
   team-ready).
+- The observability MCP servers (Logging, Monitoring, etc.) for richer Insights —
+  the Asset Inventory MCP slice below is built; this is the follow-on.
 - Expanding the skill catalog beyond vpc / subnet / compute-vm / firewall.
 - Real `gcloud`/`terraform` end-to-end testing once the SDK is installed.
 - motion/react spring animations per the design system.
