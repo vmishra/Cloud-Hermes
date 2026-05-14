@@ -1,3 +1,6 @@
+import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   PROVIDER_PROFILES,
   HermesError,
@@ -13,6 +16,22 @@ import { parseEnvelope } from './envelope';
 
 const DEFAULT_INVOKE_TIMEOUT_MS = 120_000;
 const AVAILABILITY_TIMEOUT_MS = 10_000;
+
+/**
+ * A stable, empty scratch directory used as the working directory for harness
+ * subprocesses. Both `claude` and `gemini` treat their cwd as ambient context —
+ * they discover `CLAUDE.md` / `GEMINI.md`, scan files, pick up project state.
+ * Running them from an empty directory keeps the reasoning function pure: its
+ * only input is the prompt Hermes assembles.
+ */
+let cachedHarnessCwd: string | undefined;
+export function getHarnessCwd(): string {
+  if (cachedHarnessCwd === undefined) {
+    cachedHarnessCwd = join(tmpdir(), 'cloud-hermes-harness');
+    mkdirSync(cachedHarnessCwd, { recursive: true });
+  }
+  return cachedHarnessCwd;
+}
 
 /**
  * Per-provider additions to the environment allowlist — the credential and
@@ -53,7 +72,7 @@ export function createHarnessProvider(
   profile: ProviderProfile,
   options: HarnessProviderOptions = {},
 ): HarnessProvider {
-  const cwd = options.cwd ?? process.cwd();
+  const cwd = options.cwd ?? getHarnessCwd();
   const envAllowlist = [...DEFAULT_ENV_ALLOWLIST, ...PROVIDER_ENV_EXTRA[profile.id]];
 
   return {
