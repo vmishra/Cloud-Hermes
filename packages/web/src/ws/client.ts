@@ -1,4 +1,4 @@
-import { ServerMessage } from '@cloud-hermes/core';
+import { ServerMessage, type ClientMessage } from '@cloud-hermes/core';
 
 /**
  * The WebSocket client. Validates every inbound frame against the shared
@@ -14,7 +14,11 @@ type Handlers = {
   onMessage?: (message: ServerMessage) => void;
 };
 
-export type Connection = { close: () => void };
+export type Connection = {
+  /** Sends a message if the socket is open; returns whether it was sent. */
+  send: (message: ClientMessage) => boolean;
+  close: () => void;
+};
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 const RETRY_DELAY_MS = 1500;
@@ -58,6 +62,11 @@ export function connectToServer(handlers: Handlers): Connection {
   open();
 
   return {
+    send: (message) => {
+      if (socket?.readyState !== WebSocket.OPEN) return false;
+      socket.send(JSON.stringify(message));
+      return true;
+    },
     close: () => {
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
