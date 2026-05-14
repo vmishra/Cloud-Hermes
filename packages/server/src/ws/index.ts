@@ -10,9 +10,10 @@ import {
   type ServerMessage,
 } from '@cloud-hermes/core';
 import { SERVER_VERSION } from '../config';
-import { runTurn } from '../harness/index';
+import { runTurn, type TurnResult } from '../harness/index';
 import { buildSkillsSection, type SkillCatalog } from '../skills/index';
 import { runExecution } from '../execution/index';
+import { diagnose } from '../diagnostics/index';
 import type { WorkspaceStore } from '../workspace/index';
 import type { ConversationStore } from '../conversations/index';
 import type { MemoryStore } from '../memory/index';
@@ -34,6 +35,8 @@ export interface WebSocketDeps {
   catalog: SkillCatalog;
   conversations: ConversationStore;
   memory: MemoryStore;
+  /** The troubleshooting knowledge base, for diagnose mode. */
+  troubleshootingKnowledge: string;
 }
 
 export async function registerWebSocket(
@@ -109,7 +112,8 @@ export async function registerWebSocket(
         send({ type: 'error', code: 'busy', message: 'A turn is already in progress.' });
         return;
       }
-      if (deps.provider === null) {
+      const provider = deps.provider;
+      if (provider === null) {
         send({
           type: 'error',
           code: 'cli-not-found',
@@ -120,30 +124,57 @@ export async function registerWebSocket(
 
       busy.add(message.conversationId);
       try {
-        // Persistence and memory are enhancements — a failure here never blocks
-        // the turn.
+        // Persistence is an enhancement — a failure here never blocks the turn.
         await deps.conversations
           .recordUser(message.workspaceId, message.conversationId, message.text)
           .catch(() => undefined);
 
-        const [graph, memoryText] = await Promise.all([
-          deps.store.loadGraph(message.workspaceId),
-          deps.memory.read(message.workspaceId),
-        ]);
-        const stateSummary = graph !== null ? summarizeGraph(graph) : undefined;
-        const userMemory = fenceMemory(memoryText);
+        let turn: TurnResult;
 
-        const turn = await runTurn(deps.provider, {
-          mode: message.mode,
-          userMessage: message.text,
-          userMemory: userMemory === '' ? undefined : userMemory,
-          stateSummary,
-          // Create mode gets progressive skill loading; converse mode does not.
-          buildSkillsSection:
-            message.mode === 'create'
-              ? (ids) => buildSkillsSection(deps.catalog, ids)
-              : undefined,
-        });
+        if (message.mode === 'diagnose') {
+          // Diagnose mode reasons about a pasted error against the real
+          // environment — what is installed, the gcloud auth state, this
+          // workspace's project and sync staleness.
+          const [workspace, graph] = await Promise.all([
+            deps.store.load(message.workspaceId),
+            deps.store.loadGraph(message.workspaceId),
+          ]);
+          turn = await diagnose(provider, {
+            errorText: message.text,
+            knowledge: deps.troubleshootingKnowledge,
+            workspace:
+              workspace === null
+                ? null
+                : {
+                    name: workspace.name,
+                    projectId: workspace.projectId,
+                    syncedAt: graph?.syncedAt ?? null,
+                    unavailableSlices:
+                      graph?.slices
+                        .filter((slice) => slice.status === 'unavailable')
+                        .map((slice) => slice.slice) ?? [],
+                  },
+          });
+        } else {
+          const [graph, memoryText] = await Promise.all([
+            deps.store.loadGraph(message.workspaceId),
+            deps.memory.read(message.workspaceId),
+          ]);
+          const stateSummary = graph !== null ? summarizeGraph(graph) : undefined;
+          const userMemory = fenceMemory(memoryText);
+
+          turn = await runTurn(provider, {
+            mode: message.mode,
+            userMessage: message.text,
+            userMemory: userMemory === '' ? undefined : userMemory,
+            stateSummary,
+            // Create mode gets progressive skill loading; converse mode does not.
+            buildSkillsSection:
+              message.mode === 'create'
+                ? (ids) => buildSkillsSection(deps.catalog, ids)
+                : undefined,
+          });
+        }
 
         if (turn.ok) {
           await deps.conversations

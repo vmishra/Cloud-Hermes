@@ -6,6 +6,7 @@ import { createWorkspaceStore } from './workspace/index';
 import { createConversationStore } from './conversations/index';
 import { createMemoryStore } from './memory/index';
 import { loadSkillCatalog } from './skills/index';
+import { loadTroubleshootingKnowledge } from './diagnostics/index';
 import { registerOnboardingRoutes } from './routes/onboarding';
 import { registerWebSocket } from './ws/index';
 
@@ -31,6 +32,8 @@ for (const { path, error } of catalog.errors) {
   app.log.warn(`Skill not loaded — ${path}: ${error}`);
 }
 
+const troubleshootingKnowledge = await loadTroubleshootingKnowledge(SKILLS_DIR);
+
 const provider = await resolveProvider();
 if (provider) {
   app.log.info(`Reasoning harness: ${provider.profile.displayName}`);
@@ -44,8 +47,21 @@ app.get('/health', async () => ({
   harness: provider?.profile.id ?? null,
 }));
 
-await registerOnboardingRoutes(app, { store, conversations, memory });
-await registerWebSocket(app, { provider, store, catalog, conversations, memory });
+await registerOnboardingRoutes(app, {
+  store,
+  conversations,
+  memory,
+  provider,
+  troubleshootingKnowledge,
+});
+await registerWebSocket(app, {
+  provider,
+  store,
+  catalog,
+  conversations,
+  memory,
+  troubleshootingKnowledge,
+});
 
 try {
   await app.listen({ host: HOST, port: PORT });

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   PROVIDER_PROFILES,
   runInsights,
+  type HarnessProvider,
   type HarnessStatus,
   type OnboardingStatus,
   type ProviderId,
@@ -9,6 +10,7 @@ import {
 import { createHarnessProvider } from '../harness/index';
 import { syncState } from '../gcp/index';
 import { checkAuthStatus, isValidProjectId, listProjects, setProject } from '../onboarding/index';
+import { diagnose } from '../diagnostics/index';
 import type { WorkspaceStore } from '../workspace/index';
 import type { ConversationStore } from '../conversations/index';
 import type { MemoryStore } from '../memory/index';
@@ -19,13 +21,16 @@ import type { MemoryStore } from '../memory/index';
  * Onboarding and the workspace-scoped reads — conversation history, memory —
  * are request/response, so they live on REST routes rather than the streaming
  * WebSocket channel. The one slow step, the first state sync, is its own
- * endpoint so the UI can show progress around it.
+ * endpoint so the UI can show progress around it. Diagnose is here too, so an
+ * operator can get guided help before a workspace even exists.
  */
 
 export interface OnboardingRouteDeps {
   store: WorkspaceStore;
   conversations: ConversationStore;
   memory: MemoryStore;
+  provider: HarnessProvider | null;
+  troubleshootingKnowledge: string;
 }
 
 export async function registerOnboardingRoutes(
@@ -127,6 +132,27 @@ export async function registerOnboardingRoutes(
       return reply.status(404).send({ error: 'Conversation not found.' });
     }
     return { id: conversationId, markdown };
+  });
+
+  app.post('/api/onboarding/diagnose', async (request, reply) => {
+    const body = request.body as { errorText?: unknown };
+    const errorText = typeof body?.errorText === 'string' ? body.errorText.trim() : '';
+    if (errorText === '') {
+      return reply.status(400).send({ error: 'Paste the error or log you are seeing.' });
+    }
+    if (deps.provider === null) {
+      return reply.status(503).send({ error: 'No reasoning harness is available.' });
+    }
+    // Pre-workspace: the diagnosis is grounded in the gcloud-configured project.
+    const turn = await diagnose(deps.provider, {
+      errorText,
+      knowledge: deps.troubleshootingKnowledge,
+      workspace: null,
+    });
+    if (!turn.ok) {
+      return reply.status(502).send({ error: turn.message });
+    }
+    return { response: turn.response };
   });
 
   app.get('/api/workspaces/:id/memory', async (request) => {
