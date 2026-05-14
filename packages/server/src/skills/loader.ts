@@ -114,7 +114,9 @@ export async function loadSkillCatalog(roots: readonly string[]): Promise<SkillC
       entries.push({
         id: frontmatter.id,
         displayName: frontmatter.displayName,
+        version: frontmatter.version,
         description: frontmatter.description,
+        triggers: frontmatter.triggers,
         service: frontmatter.service,
         dependsOn: frontmatter.dependsOn,
         path: relPath,

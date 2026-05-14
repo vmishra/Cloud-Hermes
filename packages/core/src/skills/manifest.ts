@@ -14,7 +14,10 @@ import { z } from 'zod';
 export const ManifestEntry = z.object({
   id: z.string(),
   displayName: z.string(),
+  version: z.string(),
   description: z.string(),
+  /** Trigger phrases that help the reasoning CLI route to this skill. */
+  triggers: z.array(z.string()),
   service: z.string(),
   dependsOn: z.array(z.string()),
   /** Path to the skill file, relative to the skills root. */
@@ -56,13 +59,18 @@ export function isManifestStale(manifest: SkillManifest, files: readonly FileSta
   return false;
 }
 
-/** Renders the manifest as the compact index block for the prompt. */
+/** Renders the manifest as the compact index block for the prompt — each line
+ *  carries the description and the trigger phrases, so the reasoning CLI has
+ *  enough signal to request the right skill. */
 export function renderManifestIndex(manifest: SkillManifest): string {
   if (manifest.entries.length === 0) return 'No skills are available.';
   const lines = ['Available skills — request the ones relevant to the task by id:'];
   const sorted = [...manifest.entries].sort((a, b) => a.id.localeCompare(b.id));
   for (const entry of sorted) {
     lines.push(`  - ${entry.id} (${entry.service}): ${entry.description}`);
+    if (entry.triggers.length > 0) {
+      lines.push(`      triggers: ${entry.triggers.join('; ')}`);
+    }
   }
   return lines.join('\n');
 }

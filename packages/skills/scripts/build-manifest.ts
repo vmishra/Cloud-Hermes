@@ -47,7 +47,9 @@ async function main(): Promise<void> {
     entries.push({
       id: frontmatter.id,
       displayName: frontmatter.displayName,
+      version: frontmatter.version,
       description: frontmatter.description,
+      triggers: frontmatter.triggers,
       service: frontmatter.service,
       dependsOn: frontmatter.dependsOn,
       path: relative(SKILLS_ROOT, path),

@@ -7,7 +7,9 @@ const manifest: SkillManifest = {
     {
       id: 'vpc',
       displayName: 'VPC networks',
+      version: '1.0.0',
       description: 'Create VPC networks.',
+      triggers: ['create a VPC', 'new network'],
       service: 'compute',
       dependsOn: [],
       path: 'services/vpc.md',

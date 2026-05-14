@@ -38,8 +38,15 @@ export const SkillFrontmatter = z.object({
   /** Stable skill id — lowercase, used in plans and skill requests. */
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   displayName: z.string(),
-  /** A tiny one-line description for the manifest index — a router, not docs. */
-  description: z.string().min(1).max(140),
+  /** Semantic version of the skill — bumped when its guidance or capabilities change. */
+  version: z.string().default('1.0.0'),
+  /** A concise description for the manifest index — a router, not docs. */
+  description: z.string().min(1).max(200),
+  /**
+   * Explicit trigger phrases — "create a VPC", "subnet range", "open a port" —
+   * that help the reasoning CLI pick this skill from the manifest index.
+   */
+  triggers: z.array(z.string()).default([]),
   /** The gcloud service group this skill covers, e.g. `compute`. */
   service: z.string(),
   /** Skill ids that should be co-loaded with this one. */
