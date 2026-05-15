@@ -37,7 +37,7 @@ export function WorkspaceShell({
   };
 
   return (
-    <div className="flex min-h-dvh bg-surface text-text">
+    <div className="flex min-h-dvh bg-bg text-ink">
       <WorkspaceSidebar
         workspace={workspace}
         theme={theme}

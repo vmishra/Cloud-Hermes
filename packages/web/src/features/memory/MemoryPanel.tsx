@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
 import { api } from '../../api/client';
+import { Btn } from '../../ui/atoms';
 
 /**
  * The memory panel. Per-workspace memory is markdown the operator owns — the
@@ -37,18 +38,14 @@ export function MemoryPanel({ workspace, onClose }: { workspace: Workspace; onCl
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col gap-3 px-[18px] py-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-text">Memory · {workspace.name}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-border px-2.5 py-1 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
-        >
+        <h2 className="text-[13px] font-medium text-ink">Memory · {workspace.name}</h2>
+        <Btn variant="secondary" size="sm" onClick={onClose}>
           Close
-        </button>
+        </Btn>
       </div>
-      <p className="text-xs text-text-muted">
+      <p className="text-[12px] text-ink-3">
         Preferences and learnings Cloud Hermes carries into future conversations — preferred
         regions, naming conventions, defaults. Edit freely; this is plain markdown.
       </p>
@@ -58,18 +55,18 @@ export function MemoryPanel({ workspace, onClose }: { workspace: Workspace; onCl
         disabled={status === 'loading'}
         rows={16}
         placeholder="- Prefer the europe-west1 region.&#10;- Name networks <env>-vpc."
-        className="flex-1 resize-none rounded-[var(--radius-lg)] border border-border bg-surface-raised p-3.5 font-mono text-xs text-text outline-none transition-colors duration-150 placeholder:text-text-subtle focus:border-border-strong"
+        className="thin-scroll flex-1 resize-none rounded-[var(--radius-4)] border border-border bg-surface p-3.5 font-mono text-[12px] text-ink outline-none focus:border-border-strong"
       />
-      {error !== null && <p className="text-xs text-danger">{error}</p>}
+      {error !== null && <p className="text-[12px] text-danger">{error}</p>}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <Btn
+          variant="primary"
+          size="md"
           onClick={() => void save()}
           disabled={status === 'loading' || status === 'saving'}
-          className="rounded-[var(--radius-lg)] bg-accent px-3.5 py-1.5 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
         >
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Save memory'}
-        </button>
+        </Btn>
       </div>
     </div>
   );

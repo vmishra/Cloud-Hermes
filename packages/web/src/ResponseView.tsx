@@ -1,5 +1,7 @@
 import type { ExecutionPath, HermesResponse, PlanStep } from '@cloud-hermes/core';
 import { DiagnosisView } from './DiagnosisView';
+import { Btn, Severity } from './ui/atoms';
+import { ServiceIcon } from './ui/ServiceIcon';
 
 /**
  * Renders a HermesResponse by kind — a single dispatcher over the discriminated
@@ -19,9 +21,9 @@ export function ResponseView({
         <div className="space-y-2">
           <p className="whitespace-pre-wrap leading-relaxed">{response.markdown}</p>
           {response.citations.length > 0 && (
-            <ul className="border-t border-border pt-2 text-xs text-text-subtle">
+            <ul className="hair-t mt-2 space-y-0.5 pt-2 text-[11px] text-ink-4">
               {response.citations.map((citation, index) => (
-                <li key={index}>
+                <li key={index} className="mono">
                   {citation.label}
                   {citation.resourceId ? ` · ${citation.resourceId}` : ''}
                   {citation.field ? ` · ${citation.field}` : ''}
@@ -35,8 +37,8 @@ export function ResponseView({
     case 'clarifying_questions':
       return (
         <div className="space-y-1.5">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">A few questions</p>
-          <ul className="list-disc space-y-1 pl-4 text-text-muted">
+          <p className="eyebrow">A few questions</p>
+          <ul className="list-disc space-y-1 pl-4 text-ink-2">
             {response.questions.map((question) => (
               <li key={question.id}>{question.question}</li>
             ))}
@@ -47,40 +49,40 @@ export function ResponseView({
     case 'plan':
       return (
         <div className="space-y-2.5">
-          <p className="font-medium text-text">{response.summary}</p>
-          <ol className="list-decimal space-y-1 pl-4 text-xs text-text-muted">
+          <p className="font-medium text-ink">{response.summary}</p>
+          <ol className="space-y-1.5">
             {response.steps.map((step, index) => (
-              <li key={index}>
-                <span className="font-mono text-text">
-                  {step.skillId}:{step.capability}
-                </span>{' '}
-                — {step.rationale}
+              <li key={index} className="flex items-start gap-2">
+                <span className="mono mt-0.5 text-[11px] text-ink-5">{index + 1}</span>
+                <ServiceIcon kind={step.skillId} size={14} className="mt-px shrink-0" />
+                <span className="min-w-0 flex-1 text-[12px] text-ink-2">
+                  <span className="mono text-ink">
+                    {step.skillId}:{step.capability}
+                  </span>{' '}
+                  — {step.rationale}
+                </span>
               </li>
             ))}
           </ol>
           {onExecutePlan !== undefined && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => onExecutePlan(response.steps, 'run')}
-                className="rounded-full bg-accent px-3 py-1.5 text-xs text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04]"
-              >
+            <div className="flex flex-wrap gap-2 pt-0.5">
+              <Btn variant="primary" size="sm" onClick={() => onExecutePlan(response.steps, 'run')}>
                 Run
-              </button>
-              <button
-                type="button"
+              </Btn>
+              <Btn
+                variant="secondary"
+                size="sm"
                 onClick={() => onExecutePlan(response.steps, 'commands')}
-                className="rounded-full border border-border px-3 py-1.5 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
               >
                 Copy commands
-              </button>
-              <button
-                type="button"
+              </Btn>
+              <Btn
+                variant="secondary"
+                size="sm"
                 onClick={() => onExecutePlan(response.steps, 'terraform')}
-                className="rounded-full border border-border px-3 py-1.5 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
               >
                 Generate Terraform
-              </button>
+              </Btn>
             </div>
           )}
         </div>
@@ -88,7 +90,8 @@ export function ResponseView({
 
     case 'skill_request':
       return (
-        <p className="text-xs text-text-subtle">
+        <p className="flex items-center gap-1.5 text-[12px] text-ink-4">
+          <Severity kind="info" />
           Loading skills: {response.skills.join(', ')}
           {response.reason ? ` — ${response.reason}` : ''}
         </p>

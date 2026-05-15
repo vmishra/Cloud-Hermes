@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type {
   ApprovalCard,
   ConversationMode,
@@ -15,6 +15,7 @@ import { ResponseView } from './ResponseView';
 import { InsightsView } from './InsightsView';
 import { CommandsView, TerraformView, ApprovalCardView, TerminalLog } from './ExecutionViews';
 import { useVoiceInput } from './ui/useVoiceInput';
+import { HermesMark, LoopRail, StatusDot, Tag, Btn, type LoopStage } from './ui/atoms';
 import { api } from './api/client';
 
 /**
@@ -33,16 +34,50 @@ type Entry =
   | { id: number; role: 'result'; ok: boolean; summary: string }
   | { id: number; role: 'error'; text: string };
 
-function StatusDot({ state, busy }: { state: ConnectionState; busy: boolean }) {
-  const label = state !== 'connected' ? 'offline' : busy ? 'working' : 'standby';
-  const color = state !== 'connected' ? 'bg-border-strong' : busy ? 'bg-accent' : 'bg-success';
+const RESPONSE_STAGE: Record<HermesResponse['kind'], string> = {
+  answer: 'observe',
+  clarifying_questions: 'clarify',
+  plan: 'plan',
+  skill_request: 'plan',
+  diagnosis: 'diagnose',
+};
+
+function UserMsg({ children }: { children: ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5">
-      <span className={`h-2 w-2 rounded-full ${color} ${busy ? 'animate-pulse' : ''}`} />
-      <span className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">{label}</span>
-    </span>
+    <div className="flex justify-end">
+      <div className="max-w-[78%] rounded-[12px_12px_4px_12px] border border-accent-line bg-accent-soft px-3 py-2 text-[13px] leading-relaxed text-ink">
+        {children}
+      </div>
+    </div>
   );
 }
+
+function HermesMsg({ stage, children }: { stage?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-border bg-surface">
+        <HermesMark size={14} />
+      </span>
+      <div className="min-w-0 flex-1">
+        {stage !== undefined && (
+          <div className="mb-1 flex items-center gap-1.5">
+            <span className="eyebrow">{stage}</span>
+            <span className="h-px w-6 bg-hairline" />
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const MIC_ICON = (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+    <rect x="4.5" y="1.5" width="3" height="6" rx="1.5" fill="currentColor" />
+    <path d="M2.5 6 a 3.5 3.5 0 0 0 7 0" stroke="currentColor" strokeWidth="1" fill="none" />
+    <line x1="6" y1="9.5" x2="6" y2="11" stroke="currentColor" strokeWidth="1" />
+  </svg>
+);
 
 export function Conversation({
   workspace,
@@ -164,113 +199,162 @@ export function Conversation({
     }
   };
 
+  const loopStage: LoopStage = mode === 'create' ? 'plan' : 'observe';
+  const connectionTone =
+    state !== 'connected' ? 'danger' : busy ? 'accent' : 'success';
+  const connectionLabel = state !== 'connected' ? 'offline' : busy ? 'working' : 'standby';
+
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
-        <span className="text-sm font-medium tracking-tight text-text">{workspace.name}</span>
-        <StatusDot state={state} busy={busy} />
+      {/* MainBar */}
+      <header className="hair-b flex items-center gap-4 bg-bg px-[18px] py-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="mono shrink-0 text-[10px] text-ink-4">conversation</span>
+          <span className="text-ink-5">/</span>
+          <span className="truncate text-[12px] text-ink">{workspace.name}</span>
+          <Tag tone={mode === 'create' ? 'accent' : mode === 'diagnose' ? 'warning' : 'neutral'}>
+            {mode}
+          </Tag>
+        </div>
+        <LoopRail stage={loopStage} compact animated={busy} />
+        <span className="h-[18px] w-px bg-hairline" />
+        <span className="flex items-center gap-1.5">
+          <StatusDot tone={connectionTone} pulse={busy} />
+          <span className="eyebrow">{connectionLabel}</span>
+        </span>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
-        {entries.length === 0 && (
-          <p className="my-auto text-center font-display text-xl italic text-text-subtle">
-            What would you like to arrange?
-          </p>
-        )}
+      {/* Transcript */}
+      <main className="thin-scroll flex-1 overflow-auto">
+        <div className="mx-auto flex w-full max-w-[880px] flex-col gap-[18px] px-[18px] py-6">
+          {entries.length === 0 && (
+            <p className="display my-auto py-16 text-center text-2xl text-ink-4">
+              {mode === 'create'
+                ? 'What shall we arrange?'
+                : mode === 'diagnose'
+                  ? 'What went wrong?'
+                  : 'What would you like to know?'}
+            </p>
+          )}
 
-        {entries.map((entry) => (
-          <div key={entry.id}>
-            {entry.role === 'user' && (
-              <div className="ml-auto max-w-[80%] rounded-[var(--radius-lg)] bg-accent-soft px-3.5 py-2 text-sm text-text">
-                {entry.text}
-              </div>
-            )}
-            {entry.role === 'hermes' && (
-              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
-                <ResponseView
-                  response={entry.response}
-                  onExecutePlan={entry.response.kind === 'plan' ? executePlan : undefined}
-                />
-              </div>
-            )}
-            {entry.role === 'insights' && (
-              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
-                <InsightsView insights={entry.insights} />
-              </div>
-            )}
-            {entry.role === 'commands' && (
-              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
-                <CommandsView commands={entry.commands} />
-              </div>
-            )}
-            {entry.role === 'terraform' && (
-              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3.5 py-2.5 text-sm text-text">
-                <TerraformView files={entry.files} />
-              </div>
-            )}
-            {entry.role === 'approval' && (
-              <div className="max-w-[92%] text-sm">
-                <ApprovalCardView
-                  card={entry.card}
-                  resolved={entry.resolved}
-                  onResolve={(decision) => resolveApproval(entry.card.approvalId, decision)}
-                />
-              </div>
-            )}
-            {entry.role === 'result' && (
-              <div
-                className={`max-w-[92%] rounded-[var(--radius-lg)] border px-3.5 py-2 text-sm ${
-                  entry.ok
-                    ? 'border-border bg-elev-1 text-text-muted'
-                    : 'border-danger bg-danger-soft text-danger'
-                }`}
-              >
-                {entry.summary}
-              </div>
-            )}
-            {entry.role === 'error' && (
-              <div className="max-w-[92%] rounded-[var(--radius-lg)] border border-danger bg-danger-soft px-3.5 py-2 text-sm text-danger">
-                {entry.text}
-              </div>
-            )}
-          </div>
-        ))}
+          {entries.map((entry) => {
+            if (entry.role === 'user') return <UserMsg key={entry.id}>{entry.text}</UserMsg>;
+            if (entry.role === 'hermes')
+              return (
+                <HermesMsg key={entry.id} stage={RESPONSE_STAGE[entry.response.kind]}>
+                  <div className="rounded-[var(--radius-4)] border border-hairline bg-surface px-3.5 py-3 text-[13px] text-ink">
+                    <ResponseView
+                      response={entry.response}
+                      onExecutePlan={entry.response.kind === 'plan' ? executePlan : undefined}
+                    />
+                  </div>
+                </HermesMsg>
+              );
+            if (entry.role === 'insights')
+              return (
+                <HermesMsg key={entry.id} stage="review">
+                  <div className="rounded-[var(--radius-4)] border border-hairline bg-surface px-3.5 py-3 text-[13px] text-ink">
+                    <InsightsView insights={entry.insights} />
+                  </div>
+                </HermesMsg>
+              );
+            if (entry.role === 'commands')
+              return (
+                <HermesMsg key={entry.id} stage="execute · commands">
+                  <div className="rounded-[var(--radius-4)] border border-hairline bg-surface px-3.5 py-3 text-[13px] text-ink">
+                    <CommandsView commands={entry.commands} />
+                  </div>
+                </HermesMsg>
+              );
+            if (entry.role === 'terraform')
+              return (
+                <HermesMsg key={entry.id} stage="execute · terraform">
+                  <div className="rounded-[var(--radius-4)] border border-hairline bg-surface px-3.5 py-3 text-[13px] text-ink">
+                    <TerraformView files={entry.files} />
+                  </div>
+                </HermesMsg>
+              );
+            if (entry.role === 'approval')
+              return (
+                <HermesMsg key={entry.id} stage="execute · approval">
+                  <ApprovalCardView
+                    card={entry.card}
+                    resolved={entry.resolved}
+                    onResolve={(decision) => resolveApproval(entry.card.approvalId, decision)}
+                  />
+                </HermesMsg>
+              );
+            if (entry.role === 'result')
+              return (
+                <HermesMsg key={entry.id} stage="execute · result">
+                  <div
+                    className={`rounded-[var(--radius-3)] border px-3 py-2 text-[12px] ${
+                      entry.ok
+                        ? 'border-hairline bg-elev-1 text-ink-2'
+                        : 'border-danger bg-danger-soft text-danger'
+                    }`}
+                  >
+                    {entry.summary}
+                  </div>
+                </HermesMsg>
+              );
+            return (
+              <HermesMsg key={entry.id} stage="error">
+                <div className="rounded-[var(--radius-3)] border border-danger bg-danger-soft px-3 py-2 text-[12px] text-danger">
+                  {entry.text}
+                </div>
+              </HermesMsg>
+            );
+          })}
 
-        {busy && (
-          <p className="font-display text-sm italic text-text-subtle" aria-live="polite">
-            Thinking…
-          </p>
-        )}
-        <TerminalLog text={terminalLog} />
+          {busy && (
+            <HermesMsg>
+              <p className="display text-[13px] text-ink-4" aria-live="polite">
+                Thinking…
+              </p>
+            </HermesMsg>
+          )}
+          <TerminalLog text={terminalLog} />
+        </div>
       </main>
 
-      <footer className="border-t border-border px-6 py-4">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
-          <div className="flex items-center gap-1 text-[11px]">
-            {(['converse', 'create', 'diagnose'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`rounded-full px-2.5 py-1 transition-[filter] duration-150 ${
-                  mode === m
-                    ? 'bg-accent-soft text-text'
-                    : 'bg-elev-2 text-text-muted hover:brightness-[1.05]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => void reviewProject()}
-              disabled={busy}
-              className="ml-auto rounded-full border border-border px-2.5 py-1 text-text-muted transition-colors duration-150 hover:border-border-strong disabled:opacity-40"
-            >
+      {/* Composer */}
+      <footer className="hair-t bg-bg px-[18px] pb-3.5 pt-3">
+        <div className="mx-auto w-full max-w-[880px]">
+          <div className="mb-2 flex items-center gap-2">
+            <div className="inline-flex rounded-[var(--radius-2)] border border-hairline bg-elev-1 p-0.5">
+              {(['converse', 'create', 'diagnose'] as const).map((m) => {
+                const on = m === mode;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`rounded-[var(--radius-1)] px-2.5 py-[3px] text-[11px] font-medium transition-colors duration-150 ${
+                      on
+                        ? 'bg-surface text-ink shadow-[0_1px_0_0_var(--hairline)]'
+                        : 'text-ink-3 hover:text-ink-2'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="mono text-[10px] text-ink-4">
+              {mode === 'converse'
+                ? 'read-only · cites resources'
+                : mode === 'create'
+                  ? 'plans before it acts · human approval required'
+                  : 'guided troubleshooting · reads your environment'}
+            </span>
+            <span className="flex-1" />
+            <Btn variant="quiet" size="sm" onClick={() => void reviewProject()} disabled={busy}>
               Review project
-            </button>
+            </Btn>
           </div>
-          <div className="flex items-end gap-2">
+
+          <div className="flex items-end gap-2 rounded-[var(--radius-4)] border border-border bg-surface px-3 py-2.5">
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -282,30 +366,38 @@ export function Conversation({
               }}
               rows={2}
               aria-label="Message Cloud Hermes"
-              className="flex-1 resize-none rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-text outline-none transition-colors duration-150 placeholder:text-text-subtle focus:border-border-strong"
+              placeholder={
+                mode === 'create'
+                  ? 'Describe what you want to arrange…'
+                  : mode === 'diagnose'
+                    ? 'Paste the error or command output…'
+                    : 'Ask about this project…'
+              }
+              className="min-h-9 flex-1 resize-none border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-4"
             />
             {voice.supported && (
               <button
                 type="button"
                 onClick={voice.toggle}
                 aria-label={voice.listening ? 'Stop dictation' : 'Start dictation'}
-                className={`h-10 w-10 shrink-0 rounded-full border text-[11px] uppercase tracking-wider transition-colors duration-150 ${
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-2)] border transition-colors duration-150 ${
                   voice.listening
-                    ? 'border-accent bg-accent-soft text-text'
-                    : 'border-border text-text-muted hover:border-border-strong'
+                    ? 'border-accent-line bg-accent-soft text-accent'
+                    : 'border-border text-ink-3 hover:border-border-strong'
                 }`}
               >
-                {voice.listening ? '•••' : 'mic'}
+                {MIC_ICON}
               </button>
             )}
-            <button
-              type="button"
+            <Btn
+              variant="primary"
+              size="md"
               onClick={send}
               disabled={busy || state !== 'connected' || draft.trim() === ''}
-              className="h-10 shrink-0 rounded-[var(--radius-lg)] bg-accent px-4 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
             >
               Send
-            </button>
+              <span className="mono ml-0.5 text-[10px] opacity-70">↵</span>
+            </Btn>
           </div>
         </div>
       </footer>

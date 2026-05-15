@@ -8,6 +8,7 @@ import type {
 } from '@cloud-hermes/core';
 import { api, type GcloudProject } from '../../api/client';
 import { ThemeToggle, type Theme } from '../../ui/theme';
+import { Wordmark, Btn, CodeLine, Surface } from '../../ui/atoms';
 import { ResponseView } from '../../ResponseView';
 
 /**
@@ -20,10 +21,7 @@ import { ResponseView } from '../../ResponseView';
  * an error before a workspace exists can still get guided help.
  */
 
-/**
- * The always-available "stuck?" panel. The operator pastes an error; the server
- * grounds a diagnosis in the real environment and walks them through it.
- */
+/** The always-available "stuck?" panel — paste an error, get a guided fix. */
 function DiagnoseHelp() {
   const [open, setOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
@@ -47,18 +45,18 @@ function DiagnoseHelp() {
   };
 
   return (
-    <div className="mt-4 rounded-[var(--radius-lg)] border border-border bg-elev-1">
+    <Surface className="mt-4">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between px-5 py-3 text-sm text-text-muted"
+        className="flex w-full items-center justify-between px-5 py-3 text-[13px] text-ink-3"
       >
         <span>Stuck? Describe what you&apos;re seeing</span>
-        <span className="text-text-subtle">{open ? '–' : '+'}</span>
+        <span className="text-ink-4">{open ? '–' : '+'}</span>
       </button>
       {open && (
-        <div className="space-y-3 border-t border-border p-5">
-          <p className="text-xs text-text-muted">
+        <div className="hair-t space-y-3 p-5">
+          <p className="text-[12px] text-ink-3">
             Paste the exact error or command output. Cloud Hermes reads your
             environment and walks you through it — with commands already filled in
             for your setup.
@@ -68,25 +66,25 @@ function DiagnoseHelp() {
             onChange={(event) => setErrorText(event.target.value)}
             rows={4}
             placeholder="gcloud: command not found"
-            className="w-full resize-none rounded-md border border-border bg-surface-raised p-3 font-mono text-xs text-text outline-none focus:border-border-strong"
+            className="w-full resize-none rounded-[var(--radius-2)] border border-border bg-surface p-3 font-mono text-[12px] text-ink outline-none focus:border-border-strong"
           />
-          <button
-            type="button"
+          <Btn
+            variant="primary"
+            size="md"
             onClick={() => void run()}
             disabled={busy || errorText.trim() === ''}
-            className="rounded-[var(--radius-lg)] bg-accent px-3.5 py-1.5 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
           >
             {busy ? 'Diagnosing…' : 'Diagnose'}
-          </button>
-          {error !== null && <p className="text-xs text-danger">{error}</p>}
+          </Btn>
+          {error !== null && <p className="text-[12px] text-danger">{error}</p>}
           {result !== null && (
-            <div className="rounded-md border border-border bg-surface-raised p-3 text-sm">
+            <div className="rounded-[var(--radius-3)] border border-hairline bg-surface p-3 text-[13px] text-ink">
               <ResponseView response={result} />
             </div>
           )}
         </div>
       )}
-    </div>
+    </Surface>
   );
 }
 
@@ -100,69 +98,43 @@ function Shell({
   onToggleTheme: () => void;
 }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface px-6 py-10 text-text">
+    <div className="flex min-h-dvh items-center justify-center bg-bg px-6 py-10 text-ink">
       <div className="w-full max-w-lg">
         <div className="mb-1 flex items-center justify-between">
-          <h1 className="font-display text-2xl">Cloud Hermes</h1>
+          <Wordmark size={20} />
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
-        <p className="mb-6 font-display text-base italic text-text-subtle">
+        <p className="display mb-6 text-base text-ink-4">
           Connect a Google Cloud project to begin.
         </p>
-        <div className="rounded-[var(--radius-lg)] border border-border bg-elev-1 p-6">
-          {children}
-        </div>
+        <Surface className="p-6">{children}</Surface>
         <DiagnoseHelp />
       </div>
     </div>
   );
 }
 
-function CopyableCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-xs">
-      <code className="flex-1 overflow-x-auto whitespace-nowrap text-text">{command}</code>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(command);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
-        className="shrink-0 rounded bg-accent px-2 py-1 text-[10px] uppercase tracking-wider text-accent-ink"
-      >
-        {copied ? 'copied' : 'copy'}
-      </button>
-    </div>
-  );
-}
-
 function RecheckButton({ onRecheck }: { onRecheck: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onRecheck}
-      className="rounded-[var(--radius-lg)] border border-border px-3 py-1.5 text-sm text-text-muted transition-colors duration-150 hover:border-border-strong"
-    >
+    <Btn variant="secondary" size="md" onClick={onRecheck}>
       Re-check
-    </button>
+    </Btn>
   );
 }
 
 function InstallGcloud({ onRecheck }: { onRecheck: () => void }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium text-text">The Google Cloud SDK is not installed</h2>
-      <p className="text-sm text-text-muted">
-        Cloud Hermes uses <code className="font-mono">gcloud</code> to read and change your
-        project. Install the SDK, then re-check.
+      <h2 className="text-[13px] font-medium text-ink">The Google Cloud SDK is not installed</h2>
+      <p className="text-[13px] text-ink-3">
+        Cloud Hermes uses <code className="mono">gcloud</code> to read and change your project.
+        Install the SDK, then re-check.
       </p>
       <a
         href="https://cloud.google.com/sdk/docs/install"
         target="_blank"
         rel="noreferrer"
-        className="inline-block text-sm text-accent underline"
+        className="inline-block text-[13px] text-accent underline"
       >
         Installation guide
       </a>
@@ -173,29 +145,27 @@ function InstallGcloud({ onRecheck }: { onRecheck: () => void }) {
   );
 }
 
-function Authenticate({
-  status,
-  onRecheck,
-}: {
-  status: OnboardingStatus;
-  onRecheck: () => void;
-}) {
+function Authenticate({ status, onRecheck }: { status: OnboardingStatus; onRecheck: () => void }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium text-text">Authenticate gcloud</h2>
-      <p className="text-sm text-text-muted">
+      <h2 className="text-[13px] font-medium text-ink">Authenticate gcloud</h2>
+      <p className="text-[13px] text-ink-3">
         Run these in your terminal — each opens a browser sign-in — then re-check.
       </p>
       {status.gcloud.account === null && (
         <div className="space-y-1">
-          <p className="text-xs text-text-subtle">Sign in your account</p>
-          <CopyableCommand command="gcloud auth login" />
+          <p className="eyebrow">Sign in your account</p>
+          <CodeLine copyable prefix="$">
+            gcloud auth login
+          </CodeLine>
         </div>
       )}
       {!status.gcloud.adc && (
         <div className="space-y-1">
-          <p className="text-xs text-text-subtle">Set application default credentials</p>
-          <CopyableCommand command="gcloud auth application-default login" />
+          <p className="eyebrow">Set application default credentials</p>
+          <CodeLine copyable prefix="$">
+            gcloud auth application-default login
+          </CodeLine>
         </div>
       )}
       <div>
@@ -208,10 +178,10 @@ function Authenticate({
 function NoHarness({ onRecheck }: { onRecheck: () => void }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium text-text">No reasoning harness is ready</h2>
-      <p className="text-sm text-text-muted">
-        Cloud Hermes needs the Claude Code CLI or the Gemini CLI, installed and
-        authenticated. Install one, sign in, then re-check.
+      <h2 className="text-[13px] font-medium text-ink">No reasoning harness is ready</h2>
+      <p className="text-[13px] text-ink-3">
+        Cloud Hermes needs the Claude Code CLI or the Gemini CLI, installed and authenticated.
+        Install one, sign in, then re-check.
       </p>
       <div>
         <RecheckButton onRecheck={onRecheck} />
@@ -262,16 +232,16 @@ function Configure({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium text-text">Create a workspace</h2>
+      <h2 className="text-[13px] font-medium text-ink">Create a workspace</h2>
 
       <label className="block space-y-1">
-        <span className="text-xs text-text-subtle">Google Cloud project</span>
+        <span className="eyebrow">Google Cloud project</span>
         <input
           list="cloud-hermes-projects"
           value={projectId}
           onChange={(event) => setProjectId(event.target.value.trim())}
           placeholder="my-project-id"
-          className="w-full rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3 py-2 font-mono text-sm text-text outline-none focus:border-border-strong"
+          className="w-full rounded-[var(--radius-3)] border border-border bg-surface px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-border-strong"
         />
         <datalist id="cloud-hermes-projects">
           {projects.map((project) => (
@@ -283,27 +253,27 @@ function Configure({
       </label>
 
       <label className="block space-y-1">
-        <span className="text-xs text-text-subtle">Workspace name</span>
+        <span className="eyebrow">Workspace name</span>
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Production network"
-          className="w-full rounded-[var(--radius-lg)] border border-border bg-surface-raised px-3 py-2 text-sm text-text outline-none focus:border-border-strong"
+          className="w-full rounded-[var(--radius-3)] border border-border bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-border-strong"
         />
       </label>
 
       <div className="space-y-1">
-        <span className="text-xs text-text-subtle">Reasoning harness</span>
+        <span className="eyebrow">Reasoning harness</span>
         <div className="flex gap-2">
           {readyHarnesses.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setHarness(option.id)}
-              className={`rounded-[var(--radius-lg)] border px-3 py-1.5 text-sm transition-colors duration-150 ${
+              className={`rounded-[var(--radius-3)] border px-3 py-1.5 text-[13px] transition-colors duration-150 ${
                 harness === option.id
-                  ? 'border-accent bg-accent-soft text-text'
-                  : 'border-border text-text-muted hover:border-border-strong'
+                  ? 'border-accent-line bg-accent-soft text-ink'
+                  : 'border-border text-ink-3 hover:border-border-strong'
               }`}
             >
               {option.id === 'claude' ? 'Claude Code' : 'Gemini'}
@@ -313,23 +283,24 @@ function Configure({
       </div>
 
       {error !== null && (
-        <p className="rounded-md border border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
+        <p className="rounded-[var(--radius-2)] border border-danger bg-danger-soft px-3 py-2 text-[13px] text-danger">
           {error}
         </p>
       )}
 
-      <button
-        type="button"
+      <Btn
+        variant="primary"
+        size="lg"
         onClick={() => void create()}
         disabled={busy || name.trim() === '' || projectId === ''}
-        className="w-full rounded-[var(--radius-lg)] bg-accent px-4 py-2 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04] disabled:opacity-40"
+        className="w-full"
       >
         {step === 'creating'
           ? 'Creating workspace…'
           : step === 'syncing'
             ? 'Syncing project state…'
             : 'Create workspace'}
-      </button>
+      </Btn>
     </div>
   );
 }
@@ -361,7 +332,7 @@ export function Onboarding({
     return (
       <Shell theme={theme} onToggleTheme={onToggleTheme}>
         <div className="space-y-3">
-          <p className="text-sm text-danger">Could not reach the server — {error}</p>
+          <p className="text-[13px] text-danger">Could not reach the server — {error}</p>
           <RecheckButton onRecheck={load} />
         </div>
       </Shell>
@@ -371,7 +342,7 @@ export function Onboarding({
   if (status === null) {
     return (
       <Shell theme={theme} onToggleTheme={onToggleTheme}>
-        <p className="font-display text-sm italic text-text-subtle">Checking your environment…</p>
+        <p className="display text-[13px] text-ink-4">Checking your environment…</p>
       </Shell>
     );
   }

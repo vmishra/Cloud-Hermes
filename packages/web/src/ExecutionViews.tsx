@@ -1,41 +1,26 @@
 import { useState } from 'react';
 import type { ApprovalCard, ExecutionCommand, TerraformFile } from '@cloud-hermes/core';
+import { Btn, CodeLine, Severity } from './ui/atoms';
 
 /**
  * Views for the three execution paths — copyable commands, generated Terraform,
  * and the human-in-the-loop approval card — plus the live terminal log.
  */
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="shrink-0 rounded bg-accent px-2 py-1 text-[10px] uppercase tracking-wider text-accent-ink"
-    >
-      {copied ? 'copied' : 'copy'}
-    </button>
-  );
-}
-
 export function CommandsView({ commands }: { commands: ExecutionCommand[] }) {
   return (
     <div className="space-y-2">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">Commands to run</p>
+      <p className="eyebrow">Commands to run</p>
       {commands.map((command, index) => (
         <div key={index} className="space-y-1">
-          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-xs">
-            <code className="flex-1 overflow-x-auto whitespace-nowrap text-text">
-              {command.command ?? `# ${command.detail}`}
-            </code>
-            {command.command !== null && <CopyButton text={command.command} />}
-          </div>
-          {!command.ok && <p className="text-xs text-danger">{command.detail}</p>}
+          {command.command !== null ? (
+            <CodeLine copyable prefix="$">
+              {command.command}
+            </CodeLine>
+          ) : (
+            <CodeLine prefix="#">{command.detail}</CodeLine>
+          )}
+          {!command.ok && <p className="text-[11px] text-danger">{command.detail}</p>}
         </div>
       ))}
     </div>
@@ -55,24 +40,20 @@ export function TerraformView({ files }: { files: TerraformFile[] }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">Terraform</p>
+      <p className="eyebrow">Terraform</p>
       {files.map((file, index) => (
         <div key={index} className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-text-muted">{file.name}</span>
-            <button
-              type="button"
-              onClick={() => download(file)}
-              className="rounded border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-text-muted"
-            >
+            <span className="mono text-[11px] text-ink-3">{file.name}</span>
+            <Btn variant="quiet" size="sm" onClick={() => download(file)}>
               download
-            </button>
+            </Btn>
           </div>
-          <pre className="overflow-x-auto rounded-md border border-border bg-surface-raised p-3 font-mono text-xs text-text">
+          <pre className="thin-scroll overflow-x-auto rounded-[var(--radius-2)] border border-code-border bg-code-bg p-3 font-mono text-[12px] text-ink">
             {file.hcl}
           </pre>
           {file.unresolved.length > 0 && (
-            <p className="text-xs text-danger">
+            <p className="text-[11px] text-danger">
               Unverified — unresolved template slots: {file.unresolved.join(', ')}
             </p>
           )}
@@ -92,45 +73,34 @@ export function ApprovalCardView({
   onResolve: (decision: 'approved' | 'denied') => void;
 }) {
   return (
-    <div className="space-y-2.5 rounded-[var(--radius-lg)] border border-border-strong bg-elev-1 p-3.5">
-      <div className="border-l-2 border-accent pl-2">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">
-          Approval required · {card.classification.toLowerCase()}
-        </p>
+    <div className="space-y-2.5 rounded-[var(--radius-4)] border border-warning bg-warning-soft p-3.5">
+      <div className="flex items-center gap-2">
+        <Severity kind={card.classification} />
+        <span className="eyebrow">Approval required</span>
       </div>
-      <code className="block overflow-x-auto whitespace-nowrap rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-xs text-text">
-        {card.argv.join(' ')}
-      </code>
+      <CodeLine prefix="$">{card.argv.join(' ')}</CodeLine>
       <div>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-text-subtle">Blast radius</p>
-        <ul className="list-disc pl-4 text-xs text-text-muted">
+        <p className="eyebrow mb-0.5">Blast radius</p>
+        <ul className="list-disc pl-4 text-[12px] text-ink-2">
           {card.blastRadius.map((entry, index) => (
             <li key={index}>{entry}</li>
           ))}
         </ul>
       </div>
       {card.policyNotes.length > 0 && (
-        <p className="text-xs text-text-subtle">{card.policyNotes.join(' · ')}</p>
+        <p className="text-[11px] text-ink-4">{card.policyNotes.join(' · ')}</p>
       )}
       {resolved === null ? (
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onResolve('approved')}
-            className="rounded-[var(--radius-lg)] bg-accent px-3 py-1.5 text-sm text-accent-ink transition-[filter] duration-150 hover:brightness-[1.04]"
-          >
+          <Btn variant="primary" size="md" onClick={() => onResolve('approved')}>
             Approve and proceed
-          </button>
-          <button
-            type="button"
-            onClick={() => onResolve('denied')}
-            className="rounded-[var(--radius-lg)] border border-border bg-elev-1 px-3 py-1.5 text-sm text-text-muted transition-colors duration-150 hover:border-border-strong"
-          >
+          </Btn>
+          <Btn variant="secondary" size="md" onClick={() => onResolve('denied')}>
             Send back
-          </button>
+          </Btn>
         </div>
       ) : (
-        <p className="text-xs text-text-muted">
+        <p className="text-[12px] text-ink-3">
           {resolved === 'approved' ? 'Approved.' : 'Sent back — not run.'}
         </p>
       )}
@@ -143,7 +113,7 @@ export function TerminalLog({ text }: { text: string }) {
   return (
     <pre
       aria-live="polite"
-      className="max-h-64 overflow-auto rounded-[var(--radius-lg)] border border-border bg-[oklch(14%_0.010_260)] p-3 font-mono text-xs text-[oklch(92%_0_0)]"
+      className="thin-scroll max-h-64 overflow-auto rounded-[var(--radius-4)] border border-hairline bg-term-bg p-3 font-mono text-[12px] text-term-ink"
     >
       {text}
     </pre>

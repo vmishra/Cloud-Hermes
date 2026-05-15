@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
 import { api } from './api/client';
+import { Btn } from './ui/atoms';
 
 /**
  * A read-only view of a past conversation. The markdown transcript is the
@@ -28,20 +29,16 @@ export function PastConversationView({
   }, [workspace.id, conversationId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col gap-3 px-[18px] py-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-text">Conversation history</h2>
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-border px-2.5 py-1 text-xs text-text-muted transition-colors duration-150 hover:border-border-strong"
-        >
+        <h2 className="text-[13px] font-medium text-ink">Conversation history</h2>
+        <Btn variant="secondary" size="sm" onClick={onBack}>
           Back to conversation
-        </button>
+        </Btn>
       </div>
-      {error !== null && <p className="text-xs text-danger">{error}</p>}
+      {error !== null && <p className="text-[12px] text-danger">{error}</p>}
       {markdown !== null && (
-        <pre className="flex-1 overflow-auto whitespace-pre-wrap rounded-[var(--radius-lg)] border border-border bg-elev-1 p-4 text-sm text-text">
+        <pre className="thin-scroll flex-1 overflow-auto whitespace-pre-wrap rounded-[var(--radius-4)] border border-hairline bg-surface p-4 text-[13px] text-ink">
           {markdown}
         </pre>
       )}

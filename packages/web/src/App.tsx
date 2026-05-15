@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Workspace } from '@cloud-hermes/core';
 import { api } from './api/client';
 import { useTheme } from './ui/theme';
+import { Wordmark } from './ui/atoms';
 import { Onboarding } from './features/onboarding/Onboarding';
 import { WorkspaceShell } from './WorkspaceShell';
 
@@ -38,8 +39,9 @@ export function App() {
 
   if (phase.kind === 'loading') {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-surface text-sm text-text-subtle">
-        <span className="font-display italic">Waking the harness…</span>
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg">
+        <Wordmark size={20} />
+        <span className="display text-sm text-ink-4">Waking the harness…</span>
       </div>
     );
   }
