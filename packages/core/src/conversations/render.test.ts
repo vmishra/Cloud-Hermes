@@ -36,4 +36,24 @@ describe('renderResponseMarkdown', () => {
     const markdown = renderResponseMarkdown({ kind: 'skill_request', skills: ['vpc', 'subnet'] });
     expect(markdown).toContain('vpc, subnet');
   });
+
+  it('renders a diagnosis with its steps and commands', () => {
+    const markdown = renderResponseMarkdown({
+      kind: 'diagnosis',
+      summary: 'gcloud is not installed.',
+      rootCause: 'the SDK is missing from this machine',
+      steps: [
+        {
+          instruction: 'Install the Google Cloud SDK.',
+          command: 'curl https://sdk.cloud.google.com | bash',
+          verify: 'gcloud --version prints a version',
+        },
+      ],
+    });
+    expect(markdown).toContain('**Diagnosis:** gcloud is not installed.');
+    expect(markdown).toContain('Root cause: the SDK is missing from this machine');
+    expect(markdown).toContain('1. Install the Google Cloud SDK.');
+    expect(markdown).toContain('curl https://sdk.cloud.google.com | bash');
+    expect(markdown).toContain('_Verify:_ gcloud --version prints a version');
+  });
 });

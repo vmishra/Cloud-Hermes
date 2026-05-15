@@ -47,9 +47,10 @@ describe('isManifestStale', () => {
 });
 
 describe('renderManifestIndex', () => {
-  it('renders a compact index line per skill', () => {
+  it('renders a compact index line per skill with its trigger phrases', () => {
     const index = renderManifestIndex(manifest);
     expect(index).toContain('vpc (compute): Create VPC networks.');
+    expect(index).toContain('triggers: create a VPC; new network');
   });
 
   it('handles an empty catalog', () => {

@@ -63,4 +63,22 @@ describe('summarizeGraph', () => {
     expect(summary).toContain('in-network core');
     expect(summary).toContain('compute-firewall-rules: Compute API not enabled');
   });
+
+  it('renders generic asset nodes from the Cloud Asset Inventory slice', () => {
+    const withAsset: ResourceGraph = {
+      ...graph,
+      nodes: [
+        ...graph.nodes,
+        {
+          id: '//storage.googleapis.com/.../buckets/data',
+          kind: 'asset',
+          name: 'data',
+          data: { assetType: 'storage.googleapis.com/Bucket' },
+        },
+      ],
+    };
+    const summary = summarizeGraph(withAsset);
+    expect(summary).toContain('Other resources (1):');
+    expect(summary).toContain('data');
+  });
 });

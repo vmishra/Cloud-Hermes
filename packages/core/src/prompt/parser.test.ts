@@ -80,4 +80,15 @@ describe('parseHermesResponse', () => {
     expect(outcome.ok).toBe(true);
     if (outcome.ok) expect(outcome.response.kind).toBe('plan');
   });
+
+  it('parses a diagnosis response', () => {
+    const diagnosis = JSON.stringify({
+      kind: 'diagnosis',
+      summary: 'gcloud is not authenticated.',
+      steps: [{ instruction: 'Sign in.', command: 'gcloud auth login' }],
+    });
+    const outcome = parseHermesResponse(`Here is the fix.\n\`\`\`json\n${diagnosis}\n\`\`\``);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.response.kind).toBe('diagnosis');
+  });
 });
