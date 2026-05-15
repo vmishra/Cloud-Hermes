@@ -219,13 +219,16 @@ Cloud-Hermes/
                routes/ (onboarding + workspace REST), ws/ (the WS handler),
                index.ts, config.ts.
     web/       Vite + React 19 + Tailwind 4. src/: App.tsx (phase router),
-               WorkspaceShell, Conversation, ResponseView, InsightsView,
-               ExecutionViews, PastConversationView; features/onboarding,
-               features/history, features/memory; ui/ (theme hook + toggle,
-               voice input hook); api/client.ts (REST); ws/client.ts;
-               index.css (the OKLCH design system).
+               WorkspaceShell, Conversation, ResponseView, DiagnosisView,
+               InsightsView, ExecutionViews, PastConversationView;
+               features/onboarding, features/history, features/memory;
+               ui/ (atoms.tsx — the design atom library; ServiceIcon.tsx — GCP
+               category icons; theme hook + toggle; voice input hook);
+               api/client.ts (REST); ws/client.ts; index.css (the design
+               token system). public/icons/gcp/ — official GCP category SVGs.
     skills/    The GCP skill catalog: services/*.md (vpc, subnet, compute-vm,
-               firewall), templates/*.tf.tmpl, scripts/build-manifest.ts.
+               firewall), templates/*.tf.tmpl, troubleshooting/common-errors.md
+               (the diagnose-mode knowledge base), scripts/build-manifest.ts.
                manifest.json is generated + gitignored (server rebuilds it).
   scripts/     start.sh (the entrypoint), doctor.ts (preflight + harness
                self-test), spike-harness.ts (reliability spike).
@@ -253,9 +256,17 @@ Cloud-Hermes/
 - **Commits**: small, frequent, readable in isolation; messages end with the
   `Co-Authored-By: Claude Opus 4.7 (1M context)` trailer. Commit + push at the
   end of each build task.
-- **Design system** (`web/src/index.css`): OKLCH tokens, **light is the
-  default**, dark is a sibling palette via `data-theme`. Geist / Geist Mono /
-  Fraunces. One champagne accent. Voice/tone: observational, sentence case, no
+- **Design system** (`web/src/index.css`): a refined OKLCH token set — a `--bg`
+  / `--surface` / `--elev-1..3` surface ramp, an `--ink`..`--ink-5` text ramp,
+  `--info`/`--warning`/`--success`/`--danger`, code and terminal surfaces.
+  **Light is the default**, dark is a sibling palette via `data-theme`; four
+  accent palettes via `data-accent` (champagne is the default). Exposed to
+  components as Tailwind utilities through `@theme inline`. The atom library
+  (`ui/atoms.tsx`) is the component vocabulary: the winged-H `HermesMark`,
+  `Wordmark`, the `LoopRail` (Observe→Plan→Execute→Learn), `StatusDot`, `Tag`,
+  `Severity`, `Btn`, `CodeLine`, `Surface`. `ui/ServiceIcon.tsx` maps a resource
+  kind / service / assetType to an official Google Cloud category icon. Geist /
+  Geist Mono / Fraunces. Voice/tone: observational, sentence case, no
   exclamation marks, no emoji.
 
 ---
